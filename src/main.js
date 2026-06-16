@@ -438,7 +438,7 @@ app.innerHTML = `
 `;
 
 const $ = id => document.getElementById(id);
-const pages = ["quest","board","deck","squad","rooms","profile"];
+const pages = ["quest","board","deck","lab","squad","rooms","deploy","profile"];
 const stageLabels = ["","Bronze","Silver","Gold","Boss","Final Boss"];
 const focusModeLabels = {
   soft: "Low friction",
@@ -473,6 +473,36 @@ const resetPrompts = {
   water: "Reset: drink water, then restart with the smallest action.",
   move: "Reset: stand up, move for 30 seconds, then come back."
 };
+const experiments = {
+  micro: {
+    chapter: "Micro Gate",
+    text: "Do one visible 2-minute starter action",
+    difficulty: "1",
+    minutes: "2",
+    energy: "soft"
+  },
+  chaos: {
+    chapter: "Chaos Roll",
+    text: "Pick the first useful task you notice and complete one slice",
+    difficulty: "3",
+    minutes: "10",
+    energy: "challenge"
+  },
+  bossrush: {
+    chapter: "Boss Rush",
+    text: "Attack the task you have been avoiding with one focused sprint",
+    difficulty: "4",
+    minutes: "25",
+    energy: "challenge"
+  }
+};
+const powerUps = [
+  { code:"SHIELD", name:"Shield", effect:"Blocks one miss penalty" },
+  { code:"BOOST", name:"XP Boost", effect:"Next completion gets +20 XP" },
+  { code:"SPARK", name:"Spark Coins", effect:"+5 coins now" },
+  { code:"COMPASS", name:"Compass", effect:"Loads a 2-minute starter" },
+  { code:"BOSS", name:"Boss Breaker", effect:"Next completion hits harder" }
+];
 
 const clientId = getClientId();
 let roomCode = "";
@@ -530,6 +560,7 @@ function freshState(){
     roomCode:"",
     roomName:"",
     quests:[],
+    distractions:[],
     players:{},
     updatedAt:Date.now()
   };
@@ -550,6 +581,14 @@ function defaultPlayer(){
     focus:0,
     sessions:0,
     badges:[],
+    coins:0,
+    streak:0,
+    energy:3,
+    bossHp:100,
+    shield:0,
+    boosts:0,
+    bossBreaker:0,
+    powerups:[],
     color:profile.color || colors[Math.floor(Math.random()*colors.length)],
     selected:null,
     online:true,
@@ -564,8 +603,27 @@ function me(){
 
 function ensurePlayer(){
   if(!state.players) state.players = {};
+  if(!state.distractions) state.distractions = [];
   if(!state.players[clientId]) state.players[clientId] = defaultPlayer();
+  normalizePlayer(state.players[clientId]);
   syncProfileIntoPlayer();
+}
+
+function normalizePlayer(p){
+  p.pos = p.pos || 1;
+  p.xp = p.xp || 0;
+  p.combo = p.combo || 0;
+  p.focus = p.focus || 0;
+  p.sessions = p.sessions || 0;
+  p.badges = p.badges || [];
+  p.coins = p.coins || 0;
+  p.streak = p.streak || 0;
+  p.energy = typeof p.energy === "number" ? p.energy : 3;
+  p.bossHp = typeof p.bossHp === "number" ? p.bossHp : 100;
+  p.shield = p.shield || 0;
+  p.boosts = p.boosts || 0;
+  p.bossBreaker = p.bossBreaker || 0;
+  p.powerups = p.powerups || [];
 }
 
 function syncProfileIntoPlayer(){
