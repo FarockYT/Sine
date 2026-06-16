@@ -5,8 +5,10 @@ A Vercel + GitHub + Supabase multiplayer study-board game for gamified ADHD-frie
 ## Added in this version
 
 - Public server room: `PUBLIC-SERVER`
-- Separate app pages for Quest, Board, Deck, Squad, Rooms, and Profile
+- Separate app pages for Quest, Board, Deck, Lab, Squad, Rooms, and Profile
 - ADHD-friendly quest setup with quick starts, short sprints, reset cues, and visible rewards
+- Arcade Lab with experimental focus modes, loot chests, power-ups, boss HP, coins, and distraction parking
+- Optional sound effects for starts, wins, misses, loot, level-ups, and online room activity
 - Lobby browser for public rooms
 - Create public or private rooms
 - Player profile system
@@ -15,8 +17,6 @@ A Vercel + GitHub + Supabase multiplayer study-board game for gamified ADHD-frie
   - avatar
   - target/goal
   - bio
-  - GitHub repo/profile URL
-  - Vercel project URL
 - Multiplayer board sync
 - Shared quest deck
 - Realtime player presence
@@ -57,7 +57,7 @@ cp .env.example .env
 ```env
 VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-VITE_GITHUB_REPO_URL=https://github.com/YOUR_USERNAME/neuroquest-public-lobby
+VITE_GITHUB_REPO_URL=https://github.com/YOUR_USERNAME/neuroquest-focus-arcade
 VITE_VERCEL_PROJECT_URL=https://YOUR_PROJECT.vercel.app
 ```
 
@@ -72,9 +72,9 @@ npm run dev
 ```bash
 git init
 git add .
-git commit -m "Initial NeuroQuest public lobby"
+git commit -m "Initial NeuroQuest focus arcade"
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/neuroquest-public-lobby.git
+git remote add origin https://github.com/YOUR_USERNAME/neuroquest-focus-arcade.git
 git push -u origin main
 ```
 
@@ -100,4 +100,3 @@ git push -u origin main
 ## Security note
 
 The schema uses open RLS policies for easy public-room testing. For production, add authentication and stricter room ownership policies.
-# Sine

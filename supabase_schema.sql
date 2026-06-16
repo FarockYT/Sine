@@ -1,4 +1,4 @@
--- NeuroQuest Public Lobby + Multiplayer schema
+-- NeuroQuest Focus Arcade + Multiplayer schema
 -- Run this inside Supabase SQL Editor.
 
 create table if not exists public.profiles (

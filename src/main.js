@@ -4,8 +4,6 @@ import "./styles.css";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const REPO_URL = import.meta.env.VITE_GITHUB_REPO_URL || "";
-const VERCEL_URL = import.meta.env.VITE_VERCEL_PROJECT_URL || "";
 const hasSupabase = Boolean(SUPABASE_URL && SUPABASE_KEY);
 const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
@@ -24,7 +22,7 @@ app.innerHTML = `
       <div class="logo">NQ</div>
       <div>
         <h1>NeuroQuest Focus Arcade</h1>
-        <div class="sub">Short quests, arcade rewards, squad rooms, Vercel launch</div>
+        <div class="sub">Short quests, live rooms, sound cues, visual progress</div>
       </div>
     </div>
     <div class="pills">
@@ -32,6 +30,7 @@ app.innerHTML = `
       <div class="pill" id="roomPill">NO ROOM</div>
       <div class="pill" id="serverPill">SUPABASE OFF</div>
       <div class="pill" id="savePill">AUTO-SAVE</div>
+      <button class="pill pillButton" id="soundToggle">SOUND OFF</button>
     </div>
   </header>
 
@@ -42,7 +41,6 @@ app.innerHTML = `
     <button class="navBtn" data-page-link="lab">Lab</button>
     <button class="navBtn" data-page-link="squad">Squad</button>
     <button class="navBtn" data-page-link="rooms">Rooms</button>
-    <button class="navBtn" data-page-link="deploy">Deploy</button>
     <button class="navBtn" data-page-link="profile">Profile</button>
   </nav>
 
@@ -77,6 +75,8 @@ app.innerHTML = `
             <div class="timer" id="timer">15:00</div>
             <div class="bar"><div class="fill" id="timerFill"></div></div>
           </section>
+
+          <div class="focusMap" id="focusMap"></div>
 
           <div class="actionRow">
             <button class="green" id="start">Start Sprint</button>
@@ -335,56 +335,6 @@ app.innerHTML = `
           </div>
           <div class="rooms" id="rooms"></div>
         </section>
-
-        <section class="panel box">
-          <label>Repo / Deploy</label>
-          <div class="chips" id="repoLinks"></div>
-        </section>
-      </div>
-    </section>
-
-    <section class="page" data-page="deploy">
-      <div class="deployLayout">
-        <section class="panel launchPanel">
-          <div class="panelHead">
-            <div>
-              <label>Vercel Launch</label>
-              <h2>Production readiness</h2>
-            </div>
-            <span class="stateBadge" id="deployBadge">VITE APP</span>
-          </div>
-
-          <div class="launchGrid">
-            <div class="launchTile pass">
-              <span>Framework</span>
-              <b>Vite</b>
-            </div>
-            <div class="launchTile pass">
-              <span>Output</span>
-              <b>dist</b>
-            </div>
-            <div class="launchTile" id="supabaseLaunchTile">
-              <span>Supabase</span>
-              <b id="supabaseLaunchText">Local</b>
-            </div>
-            <div class="launchTile" id="vercelLaunchTile">
-              <span>Vercel URL</span>
-              <b id="vercelLaunchText">Not set</b>
-            </div>
-          </div>
-
-          <div class="deployTrack" id="deployTrack"></div>
-        </section>
-
-        <section class="panel box">
-          <label>Launch Links</label>
-          <div class="chips" id="launchLinks"></div>
-        </section>
-
-        <section class="panel box">
-          <label>Environment</label>
-          <div class="envList" id="envList"></div>
-        </section>
       </div>
     </section>
 
@@ -406,8 +356,6 @@ app.innerHTML = `
         </div>
         <input id="target" placeholder="Target exam / goal" />
         <textarea id="bio" placeholder="Short profile bio"></textarea>
-        <input id="githubUrl" placeholder="GitHub profile/repo URL" />
-        <input id="vercelUrl" placeholder="Vercel project URL" />
         <button class="green" id="saveProfile">Save Profile</button>
         </section>
 
@@ -438,7 +386,7 @@ app.innerHTML = `
 `;
 
 const $ = id => document.getElementById(id);
-const pages = ["quest","board","deck","lab","squad","rooms","deploy","profile"];
+const pages = ["quest","board","deck","lab","squad","rooms","profile"];
 const stageLabels = ["","Bronze","Silver","Gold","Boss","Final Boss"];
 const focusModeLabels = {
   soft: "Low friction",
@@ -515,6 +463,9 @@ let running = false;
 let timerInterval = null;
 let total = 15 * 60;
 let left = total;
+let soundEnabled = localStorage.getItem("nqSound") === "on";
+let audioCtx = null;
+let lastOnlineCount = 1;
 
 let profile = loadProfile();
 let state = loadState() || freshState();
@@ -544,8 +495,8 @@ function defaultProfile(){
     avatar: "★",
     bio: "",
     target: "",
-    github_url: REPO_URL,
-    vercel_url: VERCEL_URL,
+    github_url: "",
+    vercel_url: "",
     color: colors[Math.floor(Math.random()*colors.length)]
   };
 }
@@ -850,17 +801,12 @@ function renderPlayers(){
     .forEach(p=>{
       const card = document.createElement("div");
       card.className = "player";
-      const links = [
-        p.github_url ? `<a target="_blank" href="${safeUrl(p.github_url)}">GitHub</a>` : "",
-        p.vercel_url ? `<a target="_blank" href="${safeUrl(p.vercel_url)}">Vercel</a>` : ""
-      ].filter(Boolean).join(" · ");
       card.innerHTML = `
         <div>
           <div class="playerName">${escapeHTML(p.avatar || "★")} ${escapeHTML(p.name || "Player")} ${p.id===clientId ? "(you)" : ""}</div>
           <div class="meta">Square ${p.pos || 1} · ${p.xp || 0} XP · Rank ${rankOf(p)}${p.target ? " · " + escapeHTML(p.target) : ""}</div>
-          ${links ? `<div class="meta">${links}</div>` : ""}
         </div>
-        <div class="chip" style="border-color:${p.color};color:#fff">${p.active ? "RUN" : (p.online ? "ONLINE" : "IDLE")}</div>
+        <div class="chip" style="border-color:${p.color};background:${p.color};color:#061225">${p.active ? "RUN" : (p.online ? "ONLINE" : "IDLE")}</div>
       `;
       box.appendChild(card);
     });
@@ -900,9 +846,9 @@ function renderDeck(){
     card.className = "quest" + (q.done ? " done" : "");
     const stage = stageName(q.diff);
     card.innerHTML = `
-      <div>
-        <div class="questTitle">${escapeHTML(q.text)}</div>
-        <div class="meta">${escapeHTML(q.chapter || "Study")} · ${stage} · ${q.min} min ${q.completedBy ? "· done by " + escapeHTML(q.completedBy) : ""}</div>
+        <div>
+          <div class="questTitle">${escapeHTML(q.text)}</div>
+        <div class="meta">${escapeHTML(q.chapter || "Study")} · ${stage} · ${q.min} min · ${escapeHTML(focusModeLabels[q.mode] || "Low friction")} ${q.completedBy ? "· done by " + escapeHTML(q.completedBy) : ""}</div>
       </div>
     `;
     const btn = document.createElement("button");
@@ -920,8 +866,6 @@ function renderProfile(){
   $("avatar").value = profile.avatar || "★";
   $("target").value = profile.target || "";
   $("bio").value = profile.bio || "";
-  $("githubUrl").value = profile.github_url || "";
-  $("vercelUrl").value = profile.vercel_url || "";
   $("profileAvatarView").textContent = profile.avatar || "★";
   $("profileNameView").textContent = profile.display_name || "Player";
   $("profileMetaView").textContent = profile.target || "Local profile";
@@ -929,26 +873,6 @@ function renderProfile(){
   $("profileNameEcho").textContent = profile.display_name || "Player";
   $("profileTargetEcho").textContent = profile.target || "Local profile";
   $("profileBioEcho").textContent = profile.bio || "";
-}
-
-function renderRepoLinks(){
-  const box = $("repoLinks");
-  box.innerHTML = "";
-  const links = [
-    ["GitHub Repo", REPO_URL || profile.github_url],
-    ["Vercel App", VERCEL_URL || profile.vercel_url],
-    ["Supabase", hasSupabase ? SUPABASE_URL : ""]
-  ];
-  links.forEach(([name,url])=>{
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    if(url){
-      chip.innerHTML = `<a href="${safeUrl(url)}" target="_blank">${name}</a>`;
-    }else{
-      chip.textContent = `${name}: not set`;
-    }
-    box.appendChild(chip);
-  });
 }
 
 function fmt(sec){
@@ -967,6 +891,7 @@ function renderQuestFocus(){
   const stage = stageName($("difficulty").value);
   const minutes = Number($("minutes").value || 15);
   const reward = Number($("difficulty").value || 1) * 25;
+  const progress = Math.max(0, Math.min(100, 100 - (left / total * 100)));
 
   $("currentQuestTitle").textContent = text || "Choose one tiny quest";
   $("questModeBadge").textContent = running ? "SPRINTING" : "READY";
@@ -974,12 +899,101 @@ function renderQuestFocus(){
   $("nextStepView").textContent = text ? (chapter || "Start now") : "Name one action";
   $("focusFuelView").textContent = `${minutes} min · ${focusModeName()}`;
   $("rewardPreview").textContent = `${stage} · +${reward} XP`;
+  $("portalTime").textContent = String(Math.ceil(left / 60)).padStart(2, "0");
+  $("focusPortal").style.setProperty("--portal", `${progress}%`);
+  renderFocusMap(progress);
+  renderBossGate();
+  renderInventoryStrip();
+}
+
+function renderFocusMap(progress){
+  const steps = ["Prep","Start","Hold","Wrap","Reward"];
+  $("focusMap").innerHTML = steps.map((step,index) => {
+    const threshold = index * 25;
+    const stateClass = progress >= threshold + 25 ? "done" : (progress >= threshold ? "active" : "");
+    return `<div class="focusStep ${stateClass}"><span>${index + 1}</span><b>${step}</b></div>`;
+  }).join("");
+}
+
+function renderBossGate(){
+  const p = me();
+  const hp = Math.max(0, Math.min(100, p.bossHp ?? 100));
+  $("bossTitle").textContent = hp < 35 ? "Boss Cracking" : "Impulse Gate";
+  $("bossFill").style.width = `${hp}%`;
+  $("bossMeta").textContent = `${hp} HP · ${p.bossBreaker || 0} breaker`;
+}
+
+function renderInventoryStrip(){
+  const box = $("inventoryStrip");
+  const p = me();
+  const items = [
+    ["Coins", p.coins || 0],
+    ["Shield", p.shield || 0],
+    ["Boost", p.boosts || 0],
+    ["Breaker", p.bossBreaker || 0]
+  ];
+  box.innerHTML = items.map(([name,value]) => `<span class="invChip">${name} <b>${value}</b></span>`).join("");
+}
+
+function renderLab(){
+  const p = me();
+  $("coinView").textContent = p.coins || 0;
+  $("energyView").textContent = `${Math.max(0, Math.min(5, p.energy || 0))} / 5`;
+  $("streakView").textContent = p.streak || 0;
+  $("labStateBadge").textContent = (p.coins || 0) >= 10 ? "CHEST READY" : "LAB READY";
+  renderPowerups();
+  renderDistractions();
+}
+
+function renderPowerups(){
+  const box = $("powerupDeck");
+  const p = me();
+  const items = [
+    [`Shield`, `${p.shield || 0}`, "Blocks one miss"],
+    [`XP Boost`, `${p.boosts || 0}`, "Adds +20 XP"],
+    [`Boss Breaker`, `${p.bossBreaker || 0}`, "Extra boss damage"],
+    [`Recent`, `${(p.powerups || []).slice(-1)[0] || "None"}`, "Last roll"]
+  ];
+  box.innerHTML = items.map(([name,value,effect]) => `
+    <div class="powerCard">
+      <span>${escapeHTML(name)}</span>
+      <b>${escapeHTML(value)}</b>
+      <small>${escapeHTML(effect)}</small>
+    </div>
+  `).join("");
+}
+
+function renderDistractions(){
+  const box = $("distractionList");
+  const list = state.distractions || [];
+  if(!list.length){
+    box.innerHTML = `<div class="meta">Vault empty.</div>`;
+    return;
+  }
+  box.innerHTML = "";
+  list.slice(0,8).forEach((item,index) => {
+    const row = document.createElement("div");
+    row.className = "quest vaultItem";
+    row.innerHTML = `
+      <div>
+        <div class="questTitle">${escapeHTML(item.text)}</div>
+        <div class="meta">${new Date(item.createdAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</div>
+      </div>
+    `;
+    const btn = document.createElement("button");
+    btn.className = "mini light";
+    btn.textContent = "Clear";
+    btn.onclick = () => clearDistraction(index);
+    row.appendChild(btn);
+    box.appendChild(row);
+  });
 }
 
 function renderPills(){
   $("modePill").textContent = roomCode ? "MULTIPLAYER" : "SOLO";
   $("roomPill").textContent = roomCode ? `ROOM ${roomCode}` : "NO ROOM";
   $("serverPill").textContent = hasSupabase ? "SUPABASE ON" : "SUPABASE OFF";
+  renderSoundToggle();
 }
 
 function render(){
@@ -990,9 +1004,9 @@ function render(){
   renderBadges();
   renderDeck();
   renderProfile();
-  renderRepoLinks();
   renderTimer();
   renderQuestFocus();
+  renderLab();
   renderPills();
   saveLocal();
 }
@@ -1008,6 +1022,63 @@ function safeUrl(url){
 }
 
 function message(text){ $("message").textContent = text; }
+
+function renderSoundToggle(){
+  const btn = $("soundToggle");
+  btn.textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
+  btn.classList.toggle("active", soundEnabled);
+}
+
+function setSoundEnabled(enabled){
+  soundEnabled = enabled;
+  localStorage.setItem("nqSound", enabled ? "on" : "off");
+  renderSoundToggle();
+  if(enabled) playSound("toggle");
+}
+
+function getAudioContext(){
+  const AudioClass = window.AudioContext || window.webkitAudioContext;
+  if(!AudioClass) return null;
+  if(!audioCtx || audioCtx.state === "closed") audioCtx = new AudioClass();
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function playSound(kind){
+  if(!soundEnabled) return;
+  try{
+    const ctx = getAudioContext();
+    if(!ctx) return;
+    const patterns = {
+      toggle:[[440,.05],[660,.08]],
+      tap:[[520,.04]],
+      start:[[392,.06],[523,.08],[659,.1]],
+      pause:[[330,.05],[247,.08]],
+      complete:[[523,.06],[659,.08],[784,.12]],
+      level:[[659,.08],[880,.08],[1175,.18]],
+      miss:[[220,.08],[174,.12]],
+      shield:[[392,.06],[330,.06],[392,.12]],
+      loot:[[587,.07],[740,.07],[988,.12]],
+      online:[[440,.05],[554,.05],[659,.08]]
+    };
+    const notes = patterns[kind] || patterns.tap;
+    let offset = 0;
+    notes.forEach(([freq,duration]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = kind === "miss" ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + offset);
+      gain.gain.setValueAtTime(.0001, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(.055, ctx.currentTime + offset + .01);
+      gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + offset + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + duration + .02);
+      offset += duration * .82;
+    });
+  }catch(e){}
+}
 
 function pageFromHash(){
   const page = window.location.hash.replace("#", "");
@@ -1032,17 +1103,7 @@ function setPage(page, push = true){
 function applyPreset(name){
   const preset = quickPresets[name];
   if(!preset) return;
-  $("chapter").value = preset.chapter;
-  $("questText").value = preset.text;
-  $("difficulty").value = preset.difficulty;
-  $("minutes").value = preset.minutes;
-  $("energyMode").value = preset.energy;
-  localStorage.setItem("nqChapter", preset.chapter);
-  localStorage.setItem("nqQuestText", preset.text);
-  localStorage.setItem("nqDifficulty", preset.difficulty);
-  localStorage.setItem("nqMinutes", preset.minutes);
-  localStorage.setItem("nqEnergyMode", preset.energy);
-  setDuration();
+  setQuestDraft(preset);
   message("Preset loaded.");
 }
 
@@ -1050,11 +1111,115 @@ function resetCue(name){
   message(resetPrompts[name] || "Reset, then start again.");
 }
 
+function setQuestDraft(draft){
+  $("chapter").value = draft.chapter;
+  $("questText").value = draft.text;
+  $("difficulty").value = draft.difficulty;
+  $("minutes").value = draft.minutes;
+  $("energyMode").value = draft.energy;
+  localStorage.setItem("nqChapter", draft.chapter);
+  localStorage.setItem("nqQuestText", draft.text);
+  localStorage.setItem("nqDifficulty", draft.difficulty);
+  localStorage.setItem("nqMinutes", draft.minutes);
+  localStorage.setItem("nqEnergyMode", draft.energy);
+  setDuration();
+}
+
+function applyExperiment(name){
+  const experiment = experiments[name];
+  if(!experiment) return;
+  const draft = {...experiment};
+  if(name === "chaos"){
+    const rolls = [
+      "Finish one question, paragraph, or commit",
+      "Clear the smallest blocked task on the screen",
+      "Make one visible artifact before the timer ends",
+      "Ask one exact question and write the answer"
+    ];
+    draft.text = rolls[Math.floor(Math.random()*rolls.length)];
+  }
+  setQuestDraft(draft);
+  setPage("quest");
+  playSound("tap");
+  message(`${draft.chapter} loaded.`);
+}
+
+function rollPower(){
+  const p = me();
+  const roll = powerUps[Math.floor(Math.random()*powerUps.length)];
+  p.powerups.push(roll.name);
+  p.powerups = p.powerups.slice(-8);
+  if(roll.code === "SHIELD") p.shield += 1;
+  if(roll.code === "BOOST") p.boosts += 1;
+  if(roll.code === "SPARK") p.coins += 5;
+  if(roll.code === "COMPASS") setQuestDraft(experiments.micro);
+  if(roll.code === "BOSS") p.bossBreaker += 1;
+  playSound("loot");
+  message(`${roll.name}: ${roll.effect}.`);
+  render();
+  pushState();
+}
+
+function claimLoot(){
+  const p = me();
+  if((p.coins || 0) < 10){
+    message("Need 10 coins to open a loot chest.");
+    return;
+  }
+  p.coins -= 10;
+  const reward = Math.random();
+  if(reward < .34){
+    p.boosts += 2;
+    message("Loot chest: 2 XP Boosts.");
+  }else if(reward < .67){
+    p.shield += 2;
+    message("Loot chest: 2 Shields.");
+  }else{
+    gainXP(p, 75);
+    message("Loot chest: +75 XP.");
+  }
+  playSound("loot");
+  confetti(26);
+  render();
+  pushState();
+}
+
+function parkDistraction(){
+  const text = $("distractionText").value.trim();
+  if(!text){
+    message("Vault is ready.");
+    return;
+  }
+  if(!state.distractions) state.distractions = [];
+  state.distractions.unshift({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    text,
+    createdAt: Date.now(),
+    by: clientId
+  });
+  state.distractions = state.distractions.slice(0, 24);
+  $("distractionText").value = "";
+  playSound("tap");
+  message("Parked.");
+  render();
+  pushState();
+}
+
+function clearDistraction(index){
+  if(!state.distractions) return;
+  state.distractions.splice(index, 1);
+  playSound("tap");
+  message("Cleared from vault.");
+  render();
+  pushState();
+}
+
 function gainXP(p, amount){
   const before = levelOf(p);
   p.xp = (p.xp || 0) + amount;
   const after = levelOf(p);
   if(after > before){
+    playSound("level");
     pop("Level Up", `Rank ${rankOf(p)} reached.`);
     confetti();
   }
@@ -1071,6 +1236,8 @@ function checkBadges(p){
   if((p.sessions||0)>=10) addBadge(p,"10 RUNS");
   if((p.combo||0)>=3) addBadge(p,"COMBO III");
   if((p.combo||0)>=7) addBadge(p,"COMBO VII");
+  if((p.streak||0)>=5) addBadge(p,"STREAK V");
+  if((p.coins||0)>=50) addBadge(p,"COIN VAULT");
   if((p.focus||0)>=60) addBadge(p,"60 MIN");
   if((p.focus||0)>=180) addBadge(p,"180 MIN");
   if((p.xp||0)>=500) addBadge(p,"500 XP");
@@ -1085,6 +1252,7 @@ function start(){
   if(running) return;
   running = true;
   me().active = true;
+  playSound("start");
   message("Running.");
   render();
   pushState();
@@ -1100,31 +1268,35 @@ function start(){
       p.active = false;
       p.focus = (p.focus || 0) + Number($("minutes").value);
       p.sessions = (p.sessions || 0) + 1;
+      p.coins = (p.coins || 0) + 2;
+      p.energy = Math.min(5, (p.energy || 0) + 1);
       gainXP(p, Number($("minutes").value)*2);
       checkBadges(p);
       left = total;
       message("Session complete.");
-      chime();
+      playSound("complete");
       render();
       pushState();
     }
   },1000);
 }
 
-function pause(){
+function pause(withSound = true){
   if(timerInterval) clearInterval(timerInterval);
   timerInterval = null;
   running = false;
   me().active = false;
+  if(withSound) playSound("pause");
   message("Paused.");
   render();
   pushState();
 }
 
 function resetTimer(){
-  pause();
+  pause(false);
   total = Number($("minutes").value)*60;
   left = total;
+  playSound("tap");
   render();
   message("Timer reset.");
 }
@@ -1134,14 +1306,22 @@ function complete(){
     message("Enter a quest.");
     return;
   }
-  pause();
+  pause(false);
 
   const p = me();
   const move = Number($("difficulty").value);
   const old = p.pos || 1;
+  const boost = p.boosts > 0 ? 20 : 0;
+  const bossBonus = p.bossBreaker > 0 ? 18 : 0;
 
   p.combo = (p.combo || 0) + 1;
-  gainXP(p, move * 25);
+  p.streak = (p.streak || 0) + 1;
+  p.coins = (p.coins || 0) + move + Math.min(5, p.combo || 0);
+  p.energy = Math.min(5, (p.energy || 0) + 1);
+  if(p.boosts > 0) p.boosts -= 1;
+  if(p.bossBreaker > 0) p.bossBreaker -= 1;
+  p.bossHp = Math.max(0, (p.bossHp ?? 100) - move * 12 - bossBonus - Math.min(12, (p.combo || 0) * 2));
+  gainXP(p, move * 25 + boost);
 
   p.pos = Math.min(100, old + move);
   let extra = "";
@@ -1176,18 +1356,40 @@ function complete(){
     confetti(80);
   }
 
+  if(p.bossHp <= 0){
+    p.bossHp = 100;
+    p.coins = (p.coins || 0) + 20;
+    addBadge(p,"BOSS DROP");
+    pop("Boss Drop", "Gate broken. +20 coins.");
+    confetti(60);
+  }
+
   checkBadges(p);
-  message(`Moved ${old} → ${p.pos}.${extra}`);
+  playSound("complete");
+  message(`Moved ${old} → ${p.pos}.${extra}${boost ? " Boost +20 XP." : ""}`);
   render();
   pushState();
 }
 
 function miss(){
-  pause();
+  pause(false);
   const p = me();
+  if((p.shield || 0) > 0){
+    p.shield -= 1;
+    p.combo = 0;
+    p.streak = 0;
+    playSound("shield");
+    message("Shield absorbed the miss.");
+    render();
+    pushState();
+    return;
+  }
   p.combo = 0;
+  p.streak = 0;
+  p.energy = Math.max(0, (p.energy || 0) - 1);
   p.xp = Math.max(0, (p.xp || 0) - 10);
   p.pos = Math.max(1, (p.pos || 1) - 1);
+  playSound("miss");
   message("Miss registered. -10 XP. -1 square.");
   render();
   pushState();
@@ -1205,10 +1407,12 @@ function addQuest(){
     chapter: $("chapter").value.trim(),
     diff: Number($("difficulty").value),
     min: Number($("minutes").value),
+    mode: $("energyMode").value,
     done:false,
     createdAt:Date.now()
   });
   me().selected = 0;
+  playSound("tap");
   message("Quest added.");
   render();
   pushState();
@@ -1221,9 +1425,11 @@ function loadQuest(i){
   $("questText").value = q.text || "";
   $("difficulty").value = String(q.diff || 2);
   $("minutes").value = String(q.min || 15);
+  $("energyMode").value = q.mode || "soft";
   total = Number($("minutes").value)*60;
   left = total;
   me().selected = i;
+  playSound("tap");
   message("Quest loaded.");
   render();
   pushState();
@@ -1263,7 +1469,7 @@ function makeRoomCode(){
 
 async function joinRoom(code, name = code, isPublic = false, maxPlayers = 12){
   if(!hasSupabase){
-    message("Supabase keys are missing. Add .env values, run SQL, then deploy.");
+    message("Supabase keys are missing. Add .env values, run SQL, then restart.");
     return;
   }
 
@@ -1339,10 +1545,13 @@ async function joinRoom(code, name = code, isPublic = false, maxPlayers = 12){
     .channel(`neuroquest-room:${roomCode}`, { config: { presence: { key: clientId } } })
     .on("presence", { event: "sync" }, () => {
       const presence = channel.presenceState();
+      const onlineCount = Object.values(presence).flat().length;
       Object.values(state.players || {}).forEach(p => p.online = false);
       Object.values(presence).flat().forEach(pres => {
         if(state.players[pres.id]) state.players[pres.id].online = true;
       });
+      if(onlineCount > lastOnlineCount) playSound("online");
+      lastOnlineCount = onlineCount;
       render();
     })
     .on("postgres_changes", {
@@ -1369,6 +1578,8 @@ async function joinRoom(code, name = code, isPublic = false, maxPlayers = 12){
     .subscribe(async status => {
       if(status === "SUBSCRIBED"){
         await channel.track({ id:clientId, name:profile.display_name, onlineAt:Date.now() });
+        lastOnlineCount = 1;
+        playSound("online");
         message(`Joined ${roomName}.`);
         render();
         pushState();
@@ -1428,8 +1639,6 @@ function updateProfileFromInputs(){
   profile.avatar = $("avatar").value.trim() || "★";
   profile.target = $("target").value.trim();
   profile.bio = $("bio").value.trim();
-  profile.github_url = $("githubUrl").value.trim();
-  profile.vercel_url = $("vercelUrl").value.trim();
 }
 
 function resetGame(){
@@ -1471,17 +1680,7 @@ function confetti(count=45){
 }
 
 function chime(){
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 660;
-    g.gain.value = .045;
-    o.start();
-    setTimeout(()=>o.frequency.value = 880, 100);
-    setTimeout(()=>{ o.stop(); ctx.close(); }, 260);
-  }catch(e){}
+  playSound("complete");
 }
 
 function initFields(){
@@ -1498,7 +1697,10 @@ function initFields(){
 
 function bindNavigation(){
   document.querySelectorAll("[data-page-link]").forEach(button => {
-    button.onclick = () => setPage(button.dataset.pageLink);
+    button.onclick = () => {
+      playSound("tap");
+      setPage(button.dataset.pageLink);
+    };
   });
   window.addEventListener("hashchange", () => setPage(pageFromHash(), false));
   setPage(pageFromHash(), false);
@@ -1523,6 +1725,10 @@ function bind(){
   $("addQuest").onclick = addQuest;
   $("resetTimer").onclick = resetTimer;
   $("resetGame").onclick = resetGame;
+  $("rollPower").onclick = rollPower;
+  $("claimLoot").onclick = claimLoot;
+  $("parkDistraction").onclick = parkDistraction;
+  $("soundToggle").onclick = () => setSoundEnabled(!soundEnabled);
   $("closeModal").onclick = () => $("modal").classList.remove("show");
 
   $("minutes").onchange = () => {
@@ -1552,8 +1758,11 @@ function bind(){
   document.querySelectorAll("[data-reset]").forEach(button => {
     button.onclick = () => resetCue(button.dataset.reset);
   });
+  document.querySelectorAll("[data-experiment]").forEach(button => {
+    button.onclick = () => applyExperiment(button.dataset.experiment);
+  });
 
-  ["playerName","avatar","target","bio","githubUrl","vercelUrl"].forEach(id=>{
+  ["playerName","avatar","target","bio"].forEach(id=>{
     $(id).oninput = () => {
       updateProfileFromInputs();
       saveProfileLocal();
