@@ -136,7 +136,7 @@ label{
   text-transform:uppercase;
   margin-bottom:7px;
 }
-.missionBand,.toolPanel,.unitBoard,.commandDeck,.subjectRail{
+.missionBand,.toolPanel,.unitBoard,.mapBoard,.commandDeck,.subjectRail{
   border:1px solid var(--line);
   border-radius:var(--radius);
   background:rgba(255,255,255,.96);
@@ -148,6 +148,9 @@ label{
   gap:16px;
   align-items:center;
   padding:16px;
+  background:
+    linear-gradient(90deg,rgba(15,118,110,.12),rgba(255,255,255,.96) 34%,rgba(219,39,119,.1)),
+    #fff;
 }
 .missionCopy{min-width:0}
 .progressRing{
@@ -194,7 +197,6 @@ label{
   background:linear-gradient(90deg,var(--teal),var(--blue),var(--pink));
   transition:width .2s linear;
 }
-.timeMeter{margin:10px 0 14px}
 .journeyShelf{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -239,10 +241,11 @@ label{
 }
 .studyGrid{
   display:grid;
-  grid-template-columns:280px minmax(0,1fr) 340px;
+  grid-template-columns:260px minmax(0,1fr) 300px;
   gap:14px;
   align-items:start;
 }
+.mapGrid{margin-top:14px}
 .subjectRail{
   display:grid;
   gap:9px;
@@ -289,7 +292,7 @@ label{
   background:#dbe4ef;
 }
 .subjectMiniPath i.done{background:var(--green)}
-.unitBoard,.commandDeck,.toolPanel{padding:16px}
+.mapBoard,.unitBoard,.commandDeck,.toolPanel{padding:16px}
 .boardHead{
   display:flex;
   justify-content:space-between;
@@ -298,6 +301,175 @@ label{
   margin-bottom:14px;
 }
 .boardHead.compact{align-items:center}
+.mapViewport{
+  width:100%;
+  overflow:auto;
+  padding:4px 0 10px;
+}
+.questMap{
+  position:relative;
+  width:1100px;
+  height:620px;
+  border:2px solid #cad5e4;
+  border-radius:var(--radius);
+  overflow:hidden;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.9)),
+    linear-gradient(135deg,#d1fae5 0 24%,#dbeafe 24% 49%,#fef3c7 49% 73%,#fce7f3 73% 100%);
+  box-shadow:inset 0 0 0 8px rgba(255,255,255,.42);
+}
+.questMap:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:linear-gradient(rgba(17,24,39,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(17,24,39,.05) 1px,transparent 1px);
+  background-size:46px 46px;
+  pointer-events:none;
+}
+#questLines{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+.questLine{
+  fill:none;
+  stroke:rgba(15,23,42,.28);
+  stroke-width:9;
+  stroke-linecap:round;
+  stroke-dasharray:18 14;
+}
+.questLine.done{
+  stroke:rgba(22,163,74,.72);
+  stroke-dasharray:0;
+}
+.mapUnitFlag{
+  position:absolute;
+  left:14px;
+  width:160px;
+  min-height:62px;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:8px;
+  color:#102033;
+  background:rgba(255,255,255,.94);
+  border:2px solid #cbd5e1;
+  box-shadow:0 10px 18px rgba(15,23,42,.12);
+  z-index:4;
+  text-align:left;
+}
+.mapUnitFlag span{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:var(--radius);
+  color:#fff;
+  background:var(--teal);
+  font-size:.78rem;
+  font-weight:1000;
+}
+.mapUnitFlag b{font-size:.82rem;line-height:1.1;overflow-wrap:anywhere}
+.mapUnitFlag small{color:var(--muted);font-weight:1000}
+.mapUnitFlag.active{
+  border-color:var(--pink);
+  box-shadow:0 0 0 5px rgba(219,39,119,.12),0 12px 22px rgba(15,23,42,.14);
+}
+.mapNode{
+  position:absolute;
+  width:112px;
+  min-height:96px;
+  transform:translate(-50%,-50%) rotate(var(--tilt,0deg));
+  display:grid;
+  align-content:center;
+  gap:5px;
+  color:#102033;
+  background:rgba(255,255,255,.96);
+  border:3px solid #cbd5e1;
+  box-shadow:0 14px 24px rgba(15,23,42,.18);
+  z-index:5;
+  text-align:left;
+}
+.mapNode:nth-child(odd){--tilt:-2deg}
+.mapNode:nth-child(even){--tilt:2deg}
+.mapNode span{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:var(--radius);
+  color:#fff;
+  background:var(--gold);
+  font-size:.75rem;
+  font-weight:1000;
+}
+.mapNode b{
+  font-size:.8rem;
+  line-height:1.12;
+  overflow-wrap:anywhere;
+}
+.mapNode small{
+  color:var(--muted);
+  font-size:.68rem;
+  font-weight:900;
+  line-height:1.1;
+}
+.mapNode.quiz span{background:var(--violet)}
+.mapNode.boss{
+  min-height:110px;
+  border-color:#f59e0b;
+  background:#fff7ed;
+}
+.mapNode.boss span{background:#d97706}
+.mapNode.done{
+  border-color:#86efac;
+  background:#ecfdf5;
+}
+.mapNode.done span{background:var(--green);color:#052e16}
+.mapNode.active{
+  border-color:var(--pink);
+  box-shadow:0 0 0 6px rgba(219,39,119,.14),0 16px 28px rgba(15,23,42,.2);
+  z-index:6;
+}
+.unitPortalGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+  margin-top:12px;
+}
+.unitPortal{
+  min-height:64px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  gap:9px;
+  color:var(--ink);
+  background:#fff;
+  border:1px solid var(--line);
+  box-shadow:none;
+  text-align:left;
+}
+.unitPortal span{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:var(--radius);
+  color:#fff;
+  background:var(--blue);
+  font-size:.78rem;
+  font-weight:1000;
+}
+.unitPortal small{
+  display:block;
+  color:var(--muted);
+  font-weight:850;
+  margin-top:3px;
+}
+.unitPortal.active{border-color:var(--pink);box-shadow:0 0 0 4px rgba(219,39,119,.1)}
+.unitPortal.done{background:var(--soft-green);border-color:#86efac}
 .unitStack{
   display:grid;
   gap:12px;
@@ -401,20 +573,6 @@ label{
   background:#fff;
   font-size:.78rem;
   font-weight:900;
-}
-.focusTimer{
-  border:1px solid var(--line);
-  border-radius:var(--radius);
-  padding:14px;
-  background:linear-gradient(135deg,var(--soft-blue),var(--soft-green));
-}
-.focusTimer #timer{
-  text-align:center;
-  font-size:3.45rem;
-  font-weight:1000;
-  line-height:1;
-  font-variant-numeric:tabular-nums;
-  margin-bottom:12px;
 }
 .consoleActions{
   display:grid;
@@ -599,6 +757,7 @@ input:focus,select:focus,textarea:focus{
   .missionBand,.studyGrid,.builderGrid,.quizLayout,.profileLayout,.publicLayout{grid-template-columns:1fr}
   .subjectRail,.commandDeck{position:static}
   .journeyShelf,.presetGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .unitPortalGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:720px){
   .shell{width:min(100% - 18px,1380px);padding-top:10px}
@@ -606,11 +765,13 @@ input:focus,select:focus,textarea:focus{
   h2{font-size:1.05rem}
   .logo{width:44px;height:44px}
   .tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .missionBand,.toolPanel,.unitBoard,.commandDeck,.subjectRail{padding:12px}
+  .missionBand,.toolPanel,.unitBoard,.mapBoard,.commandDeck,.subjectRail{padding:12px}
   .missionBand{align-items:start}
   .progressRing{width:76px;height:76px}
-  .journeyShelf,.presetGrid,.currentJourneys,.consoleActions,.scoreGrid,.installGrid,.roomSummary,.statRack,.two{grid-template-columns:1fr}
-  .focusTimer #timer{font-size:2.9rem}
+  .questMap{width:980px;height:580px}
+  .mapNode{width:104px;min-height:92px}
+  .mapUnitFlag{width:146px}
+  .journeyShelf,.presetGrid,.currentJourneys,.consoleActions,.scoreGrid,.installGrid,.roomSummary,.statRack,.two,.unitPortalGrid{grid-template-columns:1fr}
   .goalRow,.unitHead,.taskRow,.manageJourney{grid-template-columns:auto minmax(0,1fr)}
   .goalPoints,.unitHead strong,.manageJourney strong{justify-self:start}
 }

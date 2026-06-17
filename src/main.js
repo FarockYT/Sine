@@ -202,7 +202,7 @@ const journeyTemplates = [
         unit("Question Run", "Easy, medium, timed", [
           task("Solve five easy questions", "practice", 12, "Use momentum questions first.", 16),
           task("Solve three medium questions", "practice", 18, "Stop after three, check errors.", 22),
-          task("One timed mini set", "timer", 20, "Short enough to finish.", 24),
+          task("One mini practice set", "practice", 20, "Short enough to finish.", 24),
           quizGoal("Practice quiz", "After practice, the best check is:", ["Find one repeat mistake", "Count only effort", "Start a new chapter"], 0)
         ])
       ]),
@@ -235,7 +235,7 @@ const journeyTemplates = [
       subject("Focus", "Make the first block easier to enter.", [
         unit("One Block", "Start, continue, close", [
           task("2m starter on main task", "2m", 2, "Open the exact file/page/material.", 8),
-          task("Focus block", "timer", 15, "Do the next visible piece.", 18),
+          task("Main action block", "task", 15, "Do the next visible piece.", 18),
           task("Send one pending message", "life", 8, "Short and done beats perfect.", 12),
           quizGoal("Focus quiz", "A good ADHD-friendly start is:", ["Tiny and visible", "Perfectly planned", "Delayed"], 0)
         ])
@@ -294,24 +294,29 @@ app.innerHTML = `
           <div><span>Cleared</span><b id="clearedGoals">0</b></div>
           <div><span>Total</span><b id="totalGoals">0</b></div>
           <div><span>Subjects</span><b id="subjectCount">0</b></div>
-          <div><span>Time</span><b id="timeStatus">Day 1</b></div>
+          <div><span>Quizzes</span><b id="quizCount">0</b></div>
         </div>
       </section>
 
-      <div class="meter timeMeter"><span id="timeFill"></span></div>
       <section class="journeyShelf" id="journeyShelf" aria-label="Journey selector"></section>
 
-      <section class="studyGrid">
+      <section class="studyGrid mapGrid">
         <aside class="subjectRail" id="subjectRail" aria-label="Subjects"></aside>
 
-        <section class="unitBoard">
+        <section class="mapBoard">
           <div class="boardHead">
             <div>
-              <label>Selected Portion</label>
+              <label>Quest Map</label>
               <h2 id="selectedSubjectTitle">Subject</h2>
               <p class="muted" id="selectedSubjectGoal"></p>
             </div>
             <span class="percentBadge" id="selectedSubjectProgress">0%</span>
+          </div>
+          <div class="mapViewport">
+            <div class="questMap" id="questMap">
+              <svg id="questLines" viewBox="0 0 1100 620" preserveAspectRatio="none"></svg>
+              <div id="mapNodes"></div>
+            </div>
           </div>
           <div class="unitStack" id="unitStack"></div>
         </section>
@@ -327,14 +332,7 @@ app.innerHTML = `
           <p class="activeDetail" id="activeGoalDetail"></p>
           <div class="activeMeta" id="activeGoalMeta"></div>
 
-          <div class="focusTimer">
-            <div id="timer">10:00</div>
-            <div class="meter"><span id="timerFill"></span></div>
-          </div>
-
           <div class="consoleActions">
-            <button type="button" class="primary" id="startFocus">Start Focus</button>
-            <button type="button" class="secondary" id="pauseFocus">Pause</button>
             <button type="button" class="success" id="completeGoal">Check Off</button>
             <button type="button" class="danger" id="resetProgress">Reset Mine</button>
           </div>
@@ -343,7 +341,6 @@ app.innerHTML = `
             <div><span>XP</span><b id="xpView">0</b></div>
             <div><span>Coins</span><b id="coinView">0</b></div>
             <div><span>Streak</span><b id="streakView">0</b></div>
-            <div><span>Focus</span><b id="focusView">0m</b></div>
           </div>
         </aside>
       </section>
@@ -376,30 +373,15 @@ app.innerHTML = `
           <label>Final Goal</label>
           <textarea id="customGoal" placeholder="Example: Finish all subjects, units, 2m questions, and final recall."></textarea>
 
-          <div class="two">
-            <div>
-              <label>Theme</label>
-              <select id="customTheme">
-                <option>Class 10</option>
-                <option>Exam</option>
-                <option>Daily</option>
-                <option>Project</option>
-                <option>Fitness</option>
-                <option>Creative</option>
-              </select>
-            </div>
-            <div>
-              <label>Duration</label>
-              <select id="customDays">
-                <option value="1">1 day</option>
-                <option value="7">7 days</option>
-                <option value="14">14 days</option>
-                <option value="30">30 days</option>
-                <option value="45" selected>45 days</option>
-                <option value="90">90 days</option>
-              </select>
-            </div>
-          </div>
+          <label>Theme</label>
+          <select id="customTheme">
+            <option>Class 10</option>
+            <option>Exam</option>
+            <option>Daily</option>
+            <option>Project</option>
+            <option>Fitness</option>
+            <option>Creative</option>
+          </select>
 
           <label>Syllabus Outline</label>
           <textarea id="customOutline" class="outlineInput">${escapeHTML(outlineSample)}</textarea>
@@ -514,10 +496,6 @@ let roomCode = "";
 let channel = null;
 let syncingRemote = false;
 let pushTimer = null;
-let running = false;
-let timerInterval = null;
-let total = 10 * 60;
-let left = total;
 let soundEnabled = localStorage.getItem(storageKeys.sound) === "on";
 let audioCtx = null;
 let lastOnlineCount = 1;
@@ -1018,11 +996,7 @@ function renderOverview(){
   $("clearedGoals").textContent = doneCount;
   $("totalGoals").textContent = contexts.length;
   $("subjectCount").textContent = journey.subjects.length;
-
-  const timePct = timeProgress(journey);
-  $("timeFill").style.width = `${timePct}%`;
-  const day = Math.min(journey.days, Math.max(1, Math.ceil(timePct / 100 * journey.days)));
-  $("timeStatus").textContent = `Day ${day}/${journey.days}`;
+  $("quizCount").textContent = contexts.filter(item => item.goal.kind === "quiz").length;
 
   renderJourneyShelf();
   renderSubjectRail();
@@ -1083,6 +1057,8 @@ function renderUnitStack(){
   const subjectItem = journey.subjects.find(item => item.id === selectedSubjectId) || journey.subjects[0];
   if(!subjectItem){
     $("unitStack").innerHTML = `<div class="empty">No subjects yet.</div>`;
+    $("questLines").innerHTML = "";
+    $("mapNodes").innerHTML = "";
     return;
   }
 
@@ -1090,49 +1066,123 @@ function renderUnitStack(){
   $("selectedSubjectTitle").textContent = subjectItem.name;
   $("selectedSubjectGoal").textContent = subjectItem.goal;
   $("selectedSubjectProgress").textContent = `${percentFor(goalContextsForSubject(subjectItem, journey), player, journey.id)}%`;
+  renderQuestMap(subjectItem, journey, player);
 
-  $("unitStack").innerHTML = subjectItem.units.map((unitItem, unitIndex) => {
+  $("unitStack").innerHTML = `
+    <div class="unitPortalGrid">
+      ${subjectItem.units.map((unitItem, unitIndex) => {
     const contexts = goalContextsForUnit(unitItem, journey);
     const progress = percentFor(contexts, player, journey.id);
     return `
-      <article class="unitCard ${unitItem.id === selectedUnitId ? "active" : ""}">
-        <button type="button" class="unitHead" data-unit="${escapeAttr(unitItem.id)}">
-          <span>U${unitIndex + 1}</span>
-          <div>
-            <b>${escapeHTML(unitItem.title)}</b>
-            <small>${escapeHTML(unitItem.target)}</small>
-          </div>
-          <strong>${progress}%</strong>
-        </button>
-        <div class="goalList">
-          ${unitItem.goals.map(goal => renderGoalRow(goal, subjectItem, unitItem, journey, player)).join("")}
+      <button type="button" class="unitPortal ${unitItem.id === selectedUnitId ? "active" : ""} ${progress === 100 ? "done" : ""}" data-unit="${escapeAttr(unitItem.id)}">
+        <span>U${unitIndex + 1}</span>
+        <div>
+          <b>${escapeHTML(unitItem.title)}</b>
+          <small>${unitItem.goals.length} nodes · ${progress}% clear</small>
         </div>
-      </article>
+      </button>
     `;
-  }).join("");
+  }).join("")}
+    </div>
+  `;
 
   document.querySelectorAll("[data-unit]").forEach(button => {
     button.onclick = () => selectUnit(button.dataset.unit);
   });
+}
+
+function renderQuestMap(subjectItem, journey, player){
+  const contexts = mapContextsForSubject(subjectItem, journey);
+  const points = contexts.map((context, index) => ({ ...context, point: mapPoint(context, index, contexts.length, subjectItem.units.length) }));
+  const lines = [];
+
+  for(let index = 0; index < points.length - 1; index++){
+    const a = toSvgPoint(points[index].point);
+    const b = toSvgPoint(points[index + 1].point);
+    const curve = index % 2 ? -54 : 54;
+    const done = isGoalDone(points[index].goal, player, journey.id) && isGoalDone(points[index + 1].goal, player, journey.id);
+    lines.push(`<path class="questLine ${done ? "done" : ""}" d="M ${a.x} ${a.y} C ${a.x + 72} ${a.y + curve}, ${b.x - 72} ${b.y - curve}, ${b.x} ${b.y}" />`);
+  }
+
+  const unitFlags = subjectItem.units.map((unitItem, unitIndex) => {
+    const y = 14 + unitIndex * (72 / Math.max(1, subjectItem.units.length));
+    const progress = percentFor(goalContextsForUnit(unitItem, journey), player, journey.id);
+    return `
+      <button type="button" class="mapUnitFlag ${unitItem.id === selectedUnitId ? "active" : ""}" data-map-unit="${escapeAttr(unitItem.id)}" style="top:${Math.min(84, y)}%">
+        <span>U${unitIndex + 1}</span>
+        <b>${escapeHTML(unitItem.title)}</b>
+        <small>${progress}%</small>
+      </button>
+    `;
+  }).join("");
+
+  $("questLines").innerHTML = lines.join("");
+  $("mapNodes").innerHTML = unitFlags + points.map((context, index) => {
+    const done = isGoalDone(context.goal, player, journey.id);
+    const selected = context.goal.id === selectedGoalId;
+    const boss = context.goalIndex === context.unit.goals.length - 1;
+    const icon = goalIcon(context.goal, index, boss);
+    return `
+      <button type="button" class="mapNode ${context.goal.kind} ${boss ? "boss" : ""} ${done ? "done" : ""} ${selected ? "active" : ""}"
+        data-goal="${escapeAttr(context.goal.id)}"
+        style="left:${context.point.x}%;top:${context.point.y}%">
+        <span>${escapeHTML(icon)}</span>
+        <b>${escapeHTML(shortTitle(context.goal.title, 25))}</b>
+        <small>${escapeHTML(context.unit.title)}</small>
+      </button>
+    `;
+  }).join("");
+
   document.querySelectorAll("[data-goal]").forEach(button => {
     button.onclick = () => selectGoal(button.dataset.goal);
   });
+  document.querySelectorAll("[data-map-unit]").forEach(button => {
+    button.onclick = () => selectUnit(button.dataset.mapUnit);
+  });
 }
 
-function renderGoalRow(goal, subjectItem, unitItem, journey, player){
-  const done = isGoalDone(goal, player, journey.id);
-  const selected = goal.id === selectedGoalId;
-  const mark = done ? "OK" : goal.kind === "quiz" ? "?" : "GO";
-  return `
-    <button type="button" class="goalRow ${done ? "done" : ""} ${selected ? "selected" : ""}" data-goal="${escapeAttr(goal.id)}">
-      <span class="goalDot">${mark}</span>
-      <div>
-        <b>${escapeHTML(goal.title)}</b>
-        <small>${escapeHTML(unitItem.title)} · ${escapeHTML(goal.kind)} · ${goal.minutes}m</small>
-      </div>
-      <span class="goalPoints">+${goal.points}</span>
-    </button>
-  `;
+function mapContextsForSubject(subjectItem, journey = activeJourney()){
+  const contexts = [];
+  subjectItem.units.forEach((unitItem, unitIndex) => {
+    unitItem.goals.forEach((goal, goalIndex) => {
+      contexts.push({ journey, subject: subjectItem, unit: unitItem, goal, unitIndex, goalIndex });
+    });
+  });
+  return contexts;
+}
+
+function mapPoint(context, index, total, unitCount){
+  const x = total <= 1 ? 56 : 19 + (index / (total - 1)) * 72;
+  const laneSize = 72 / Math.max(1, unitCount);
+  const baseY = 15 + context.unitIndex * laneSize + laneSize / 2;
+  const wobble = [0, 10, -8, 8, -5, 12, -10, 6];
+  const goalOffset = context.goalIndex % 2 ? 3 : -2;
+  return {
+    x,
+    y: Math.max(13, Math.min(88, baseY + wobble[index % wobble.length] + goalOffset))
+  };
+}
+
+function toSvgPoint(point){
+  return {
+    x: Math.round(point.x / 100 * 1100),
+    y: Math.round(point.y / 100 * 620)
+  };
+}
+
+function goalIcon(goal, index, boss = false){
+  if(goal.kind === "quiz") return "?";
+  if(boss) return "B";
+  if(String(goal.kind).includes("2m")) return "2M";
+  if(String(goal.kind).includes("5m")) return "5M";
+  if(goal.kind === "recall") return "R";
+  if(goal.kind === "diagram" || goal.kind === "map") return "M";
+  if(goal.kind === "practice") return "P";
+  return String(index + 1).padStart(2, "0");
+}
+
+function shortTitle(title, max = 26){
+  return String(title || "").length > max ? `${String(title).slice(0, max - 2)}..` : title;
 }
 
 function renderActiveConsole(){
@@ -1154,26 +1204,13 @@ function renderActiveConsole(){
   $("activeGoalMeta").innerHTML = `
     <span>${escapeHTML(subjectItem.name)}</span>
     <span>${escapeHTML(unitItem.title)}</span>
-    <span>${goal.minutes}m</span>
+    <span>+${goal.points || 0} XP</span>
     <span>${done ? "cleared" : "open"}</span>
   `;
   $("completeGoal").textContent = goal.kind === "quiz" && !done ? "Open Quiz" : done ? "Cleared" : "Check Off";
   $("xpView").textContent = player.xp;
   $("coinView").textContent = player.coins;
   $("streakView").textContent = player.streak;
-  $("focusView").textContent = `${player.focus}m`;
-
-  if(!running){
-    total = Math.max(2, goal.minutes || 10) * 60;
-    if(left <= 0 || left > total) left = total;
-  }
-  renderTimer();
-}
-
-function renderTimer(){
-  const safeTotal = Math.max(1, total);
-  $("timer").textContent = fmt(left);
-  $("timerFill").style.width = `${100 - (left / safeTotal * 100)}%`;
 }
 
 function renderJourneysPage(){
@@ -1314,7 +1351,6 @@ function setActiveJourney(journeyId){
   selectedUnitId = "";
   selectedGoalId = "";
   selectedQuizId = "";
-  pauseFocus(false);
   ensureSelection();
   addActivity(`opened ${activeJourney().title}`);
   message(`${activeJourney().title} is active.`);
@@ -1447,49 +1483,6 @@ function answerQuiz(goalId, answer){
   }
 }
 
-function startFocus(){
-  if(running) return;
-  const context = selectedGoalContext();
-  if(!context) return;
-  total = Math.max(2, context.goal.minutes || 10) * 60;
-  left = Math.min(left || total, total);
-  running = true;
-  me().active = { journeyId: context.journey.id, goalId: context.goal.id };
-  message(`Focus started: ${context.goal.title}.`);
-  playSound("start");
-  render();
-  pushState();
-  timerInterval = setInterval(() => {
-    left -= 1;
-    renderTimer();
-    if(left <= 0){
-      pauseFocus(false);
-      const minutes = Math.max(2, Math.round(total / 60));
-      const player = me();
-      const progress = progressFor(player, activeJourney().id);
-      player.focus += minutes;
-      progress.focus += minutes;
-      player.coins += 3;
-      addActivity(`finished a ${minutes} minute focus block`);
-      message("Focus block finished.");
-      playSound("complete");
-      confetti(24);
-      left = total;
-      render();
-      pushState();
-    }
-  }, 1000);
-}
-
-function pauseFocus(withSound = true){
-  if(timerInterval) clearInterval(timerInterval);
-  timerInterval = null;
-  running = false;
-  if(state.players?.[clientId]) state.players[clientId].active = false;
-  if(withSound) playSound("pause");
-  renderTimer();
-}
-
 function resetMine(confirmFirst = true){
   if(confirmFirst && !confirm("Reset only your progress on this journey?")) return;
   const player = me();
@@ -1498,8 +1491,6 @@ function resetMine(confirmFirst = true){
   progress.quizAnswers = {};
   progress.cursor = null;
   player.streak = 0;
-  pauseFocus(false);
-  left = total;
   selectedSubjectId = "";
   selectedUnitId = "";
   selectedGoalId = "";
@@ -1543,7 +1534,7 @@ function createCustomJourney(){
     title,
     finalGoal,
     theme: $("customTheme").value,
-    days: Number($("customDays").value),
+    days: 45,
     createdAt: Date.now(),
     subjects
   });
@@ -1653,15 +1644,8 @@ function loadTenOutline(){
   $("customTitle").value = "10th Portion Quest";
   $("customGoal").value = "Complete all subjects, units, 2m questions, 5m answers, recall rounds, and quiz gates.";
   $("customTheme").value = "Class 10";
-  $("customDays").value = "45";
   $("customOutline").value = outlineSample;
   previewCustom();
-}
-
-function timeProgress(journey){
-  const elapsed = Date.now() - (journey.createdAt || Date.now());
-  const duration = Math.max(1, journey.days || 1) * 24 * 60 * 60 * 1000;
-  return Math.max(0, Math.min(100, elapsed / duration * 100));
 }
 
 function addActivity(text){
@@ -1819,12 +1803,6 @@ function pageFromHash(){
   return pageAliases[page] || (pages.includes(page) ? page : "overview");
 }
 
-function fmt(seconds){
-  const m = Math.floor(Math.max(0, seconds) / 60);
-  const s = Math.max(0, seconds) % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
 function initials(name){
   return String(name || "NQ").trim().split(/\s+/).slice(0, 2).map(x => x[0]?.toUpperCase()).join("") || "NQ";
 }
@@ -1931,8 +1909,6 @@ function bind(){
   });
   window.addEventListener("hashchange", () => setPage(pageFromHash(), false));
 
-  $("startFocus").onclick = startFocus;
-  $("pauseFocus").onclick = () => pauseFocus(true);
   $("completeGoal").onclick = completeSelectedGoal;
   $("resetProgress").onclick = () => resetMine(true);
   $("joinPublic").onclick = joinPublicPath;

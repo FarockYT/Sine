@@ -1,6 +1,6 @@
 # NeuroQuest Journey
 
-A public gamified journey app for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through subjects, units, micro goals, quiz gates, focus blocks, and the final goal.
+A public gamified journey-map app for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through subjects, units, micro goals, quiz gates, map nodes, and the final goal.
 
 ## What It Does
 
@@ -20,8 +20,7 @@ Unit: Life Processes
 ? Quiz | What carries oxygen in blood? | Red blood cells | Platelets | Starch | 0
 ```
 
-- Wonky curriculum-board visualization with subject lanes, unit cards, and checkable micro goals
-- Journey duration meter that moves as time passes
+- Wonky quest-map visualization with subject routes, unit flags, boss nodes, quiz gates, and checkable micro goals
 - Player-specific progress on shared public journeys
 - Quiz gates with answer checking and sound effects
 - Public player list and activity feed
