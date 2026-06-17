@@ -8,10 +8,12 @@ const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const PUBLIC_PATH_CODE = "PUBLIC-JOURNEY-PATH";
 const colors = ["#2563eb", "#0f766e", "#7c3aed", "#d97706", "#db2777", "#16a34a", "#0891b2", "#dc2626"];
-const pages = ["dashboard", "map", "subjects", "build", "shield", "quiz", "public", "profile"];
+const pages = ["dashboard", "focus", "tasks", "map", "subjects", "build", "shield", "quiz", "public", "profile"];
 const pageAliases = { overview: "dashboard", journey: "map", journeys: "build", blocks: "shield", path: "map", create: "build" };
 const pageTitles = {
   dashboard: "Dashboard",
+  focus: "Focus",
+  tasks: "Tasks",
   map: "Journey Map",
   subjects: "Subjects",
   build: "Build",
@@ -197,6 +199,8 @@ app.innerHTML = `
 
     <nav class="sideNav" aria-label="Main pages">
       <button type="button" data-page-link="dashboard"><span></span>Dashboard</button>
+      <button type="button" data-page-link="focus"><span></span>Focus</button>
+      <button type="button" data-page-link="tasks"><span></span>Tasks</button>
       <button type="button" data-page-link="map"><span></span>Journey Map</button>
       <button type="button" data-page-link="subjects"><span></span>Subjects</button>
       <button type="button" data-page-link="build"><span></span>Build</button>
@@ -264,12 +268,109 @@ app.innerHTML = `
             <div class="rowStats" id="shieldMiniStats"></div>
           </section>
 
+          <section class="panel focusPanel">
+            <div class="panelHead">
+              <div><label>Focus Session</label><h2 id="focusStatusTitle">Ready</h2></div>
+              <button type="button" data-page-link="focus">Start</button>
+            </div>
+            <div class="focusPreview" id="focusPreview">25:00</div>
+            <div class="rowStats" id="focusMiniStats"></div>
+          </section>
+
+          <section class="panel taskPanel">
+            <div class="panelHead">
+              <div><label>Today</label><h2>Tasks and reminders</h2></div>
+              <button type="button" data-page-link="tasks">Open</button>
+            </div>
+            <div class="todayList" id="dashboardToday"></div>
+          </section>
+
           <section class="panel widePanel">
             <div class="panelHead">
               <div><label>Subject Progress</label><h2>Portion map</h2></div>
               <button type="button" data-page-link="map">Open Map</button>
             </div>
             <div class="subjectProgressList" id="dashboardSubjects"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" data-page="focus">
+        <div class="focusPage">
+          <section class="focusHero">
+            <div>
+              <label>Deep Focus</label>
+              <h2 id="focusModeTitle">Pomodoro</h2>
+              <p id="focusSubtitle">Start a protected study session and attach it to a task or journey node.</p>
+            </div>
+            <div class="focusDial">
+              <b id="focusClock">25:00</b>
+              <span id="focusPhase">Ready</span>
+            </div>
+            <div class="actionRow">
+              <button type="button" id="startFocusSession">Start</button>
+              <button type="button" id="stopFocusSession">Stop</button>
+            </div>
+          </section>
+
+          <div class="focusGrid">
+            <section class="panel">
+              <div class="panelHead"><div><label>Mode</label><h2>Session settings</h2></div></div>
+              <div class="segmented" id="focusModes">
+                <button type="button" data-focus-mode="pomodoro">Pomodoro</button>
+                <button type="button" data-focus-mode="timer">Timer</button>
+                <button type="button" data-focus-mode="stopwatch">Stopwatch</button>
+              </div>
+              <div class="settingsGrid">
+                <label>Focus minutes<input id="focusMinutes" type="number" min="5" max="180" /></label>
+                <label>Break minutes<input id="breakMinutes" type="number" min="1" max="60" /></label>
+                <label>Ambient<select id="ambientSound"><option>Rain</option><option>Library</option><option>Brown Noise</option><option>Silent</option></select></label>
+                <label class="checkLine"><input type="checkbox" id="focusStrict" /> Strict shield</label>
+              </div>
+              <button type="button" id="saveFocusSettings">Save Settings</button>
+            </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Attach</label><h2>Focus target</h2></div></div>
+              <select id="focusTaskSelect"></select>
+              <div class="focusTarget" id="focusTarget"></div>
+            </section>
+
+            <section class="panel widePanel">
+              <div class="panelHead"><div><label>History</label><h2>Focus sessions</h2></div></div>
+              <div class="sessionList" id="sessionList"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" data-page="tasks">
+        <div class="tasksPage">
+          <section class="panel">
+            <div class="panelHead"><div><label>Today</label><h2>Task command center</h2></div></div>
+            <div class="addLine"><input id="taskInput" placeholder="Task name" /><button type="button" id="addTask">Add</button></div>
+            <div class="taskList" id="taskList"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panelHead"><div><label>Reminders</label><h2>Next nudges</h2></div></div>
+            <div class="reminderForm">
+              <input id="reminderTitle" placeholder="Reminder" />
+              <input id="reminderTime" type="time" />
+              <select id="reminderRepeat"><option>Today</option><option>Daily</option><option>Weekdays</option></select>
+              <button type="button" id="addReminder">Add</button>
+            </div>
+            <div class="reminderList" id="reminderList"></div>
+          </section>
+
+          <section class="panel widePanel">
+            <div class="panelHead"><div><label>Planner</label><h2>ADHD-friendly flow</h2></div></div>
+            <div class="plannerSteps">
+              <div><span></span><b>Capture</b><small>Dump the next visible tasks.</small></div>
+              <div><span></span><b>Choose</b><small>Pick one high-impact starter.</small></div>
+              <div><span></span><b>Focus</b><small>Run a protected session.</small></div>
+              <div><span></span><b>Close</b><small>Check off and schedule the next nudge.</small></div>
+            </div>
           </section>
         </div>
       </section>
@@ -400,6 +501,16 @@ app.innerHTML = `
               </div>
               <div class="ruleList" id="ruleList"></div>
             </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Screen Time</label><h2>Usage pressure</h2></div></div>
+              <div class="usageList" id="usageList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Schedules</label><h2>Smart blocks</h2></div></div>
+              <div class="scheduleList" id="scheduleList"></div>
+            </section>
           </div>
         </div>
       </section>
@@ -492,6 +603,7 @@ let selectedSubjectId = "";
 let selectedUnitId = "";
 let selectedGoalId = "";
 let selectedQuizId = "";
+let focusTicker = null;
 
 ensureState();
 
@@ -745,6 +857,9 @@ function defaultPlayer(){
     color: profile.color || colors[0],
     journeys: {},
     shield: defaultShield(),
+    focus: defaultFocus(),
+    tasks: defaultTasks(),
+    reminders: defaultReminders(),
     xp: 0,
     coins: 0,
     streak: 0,
@@ -761,6 +876,9 @@ function normalizePlayer(player){
   player.color = player.color || colors[0];
   player.journeys = player.journeys && typeof player.journeys === "object" ? player.journeys : {};
   player.shield = normalizeShield(player.shield || player.blockPlan);
+  player.focus = normalizeFocus(player.focus);
+  player.tasks = normalizeTasks(player.tasks);
+  player.reminders = normalizeReminders(player.reminders);
   player.xp = Number(player.xp || 0);
   player.coins = Number(player.coins || 0);
   player.streak = Number(player.streak || 0);
@@ -795,9 +913,20 @@ function defaultShield(){
     active: false,
     strict: false,
     sessions: 0,
+    dailyLimit: 90,
     apps: ["Instagram", "YouTube Shorts", "Games"],
     websites: ["youtube.com/shorts", "instagram.com/reels"],
     allow: ["Notes", "Calculator", "Dictionary"],
+    usage: [
+      { id: "use-short-video", name: "Short video", minutes: 56, limit: 20 },
+      { id: "use-chat", name: "Chat apps", minutes: 34, limit: 30 },
+      { id: "use-games", name: "Games", minutes: 42, limit: 25 }
+    ],
+    schedules: [
+      { id: "school-block", title: "School hours", window: "08:30-16:00", enabled: true },
+      { id: "night-block", title: "Night reset", window: "21:30-06:30", enabled: false },
+      { id: "exam-sprint", title: "Exam sprint", window: "17:00-19:00", enabled: true }
+    ],
     rules: [
       { id: "strict-edit", title: "Lock edits", detail: "Block list changes while shield is active.", enabled: true, weight: 18 },
       { id: "short-form", title: "Short-form gate", detail: "Reels, shorts, and loop feeds stay out.", enabled: true, weight: 18 },
@@ -822,7 +951,117 @@ function normalizeShield(shield){
   next.active = Boolean(next.active);
   next.strict = Boolean(next.strict);
   next.sessions = Number(next.sessions || next.savedSessions || 0);
+  next.dailyLimit = clamp(Number(next.dailyLimit || base.dailyLimit), 20, 480);
+  next.usage = normalizeUsage(next.usage, base.usage);
+  next.schedules = normalizeSchedules(next.schedules, base.schedules);
   return next;
+}
+
+function defaultFocus(){
+  return {
+    mode: "pomodoro",
+    focusMinutes: 25,
+    breakMinutes: 5,
+    ambient: "Rain",
+    strict: false,
+    running: false,
+    startedAt: null,
+    endsAt: null,
+    elapsedSeconds: 0,
+    phase: "focus",
+    activeTaskId: "",
+    sessions: []
+  };
+}
+
+function normalizeFocus(focus){
+  const base = defaultFocus();
+  const next = focus && typeof focus === "object" ? { ...base, ...focus } : base;
+  next.mode = ["pomodoro", "timer", "stopwatch"].includes(next.mode) ? next.mode : "pomodoro";
+  next.focusMinutes = clamp(Number(next.focusMinutes || base.focusMinutes), 5, 180);
+  next.breakMinutes = clamp(Number(next.breakMinutes || base.breakMinutes), 1, 60);
+  next.ambient = ["Rain", "Library", "Brown Noise", "Silent"].includes(next.ambient) ? next.ambient : "Rain";
+  next.strict = Boolean(next.strict);
+  next.running = Boolean(next.running);
+  next.startedAt = Number(next.startedAt || 0) || null;
+  next.endsAt = Number(next.endsAt || 0) || null;
+  next.elapsedSeconds = Math.max(0, Number(next.elapsedSeconds || 0));
+  next.phase = next.phase || "focus";
+  next.activeTaskId = next.activeTaskId || "";
+  next.sessions = Array.isArray(next.sessions) ? next.sessions.map(normalizeSession).filter(Boolean).slice(0, 30) : [];
+  return next;
+}
+
+function normalizeSession(session){
+  if(!session || typeof session !== "object") return null;
+  return {
+    id: session.id || uid("session"),
+    title: session.title || "Focus session",
+    minutes: Math.max(1, Math.round(Number(session.minutes || 1))),
+    mode: session.mode || "pomodoro",
+    ambient: session.ambient || "Silent",
+    taskTitle: session.taskTitle || "",
+    at: Number(session.at || Date.now())
+  };
+}
+
+function defaultTasks(){
+  return [
+    { id: "task-plan-day", title: "Plan top three tasks", area: "Daily", priority: "High", done: false, linkedGoalId: "" },
+    { id: "task-clear-node", title: "Clear the current journey dot", area: "Journey", priority: "High", done: false, linkedGoalId: "current" },
+    { id: "task-review", title: "Review one completed dot", area: "Recall", priority: "Medium", done: false, linkedGoalId: "" }
+  ];
+}
+
+function normalizeTasks(tasks){
+  const source = Array.isArray(tasks) ? tasks : defaultTasks();
+  return source.map(task => ({
+    id: task.id || uid("task"),
+    title: String(task.title || "Untitled task").trim() || "Untitled task",
+    area: task.area || "Today",
+    priority: task.priority || "Medium",
+    done: Boolean(task.done),
+    linkedGoalId: task.linkedGoalId || "",
+    createdAt: Number(task.createdAt || Date.now())
+  })).slice(0, 80);
+}
+
+function defaultReminders(){
+  return [
+    { id: "reminder-focus", title: "Start first focus session", time: "17:30", repeat: "Today", enabled: true },
+    { id: "reminder-review", title: "Review completed dots", time: "20:30", repeat: "Daily", enabled: true }
+  ];
+}
+
+function normalizeReminders(reminders){
+  const source = Array.isArray(reminders) ? reminders : defaultReminders();
+  return source.map(reminder => ({
+    id: reminder.id || uid("reminder"),
+    title: String(reminder.title || "Reminder").trim() || "Reminder",
+    time: /^\d\d:\d\d$/.test(reminder.time || "") ? reminder.time : "17:30",
+    repeat: ["Today", "Daily", "Weekdays"].includes(reminder.repeat) ? reminder.repeat : "Today",
+    enabled: reminder.enabled !== false
+  })).slice(0, 40);
+}
+
+function normalizeUsage(usage, fallback){
+  const source = Array.isArray(usage) ? usage : fallback;
+  return source.map(item => ({
+    id: item.id || uid("usage"),
+    name: String(item.name || "App group").trim() || "App group",
+    minutes: Math.max(0, Number(item.minutes || 0)),
+    limit: clamp(Number(item.limit || 30), 5, 360)
+  })).slice(0, 12);
+}
+
+function normalizeSchedules(schedules, fallback){
+  const source = Array.isArray(schedules) ? schedules : fallback;
+  return source.map(schedule => ({
+    id: schedule.id || uid("schedule"),
+    title: String(schedule.title || "Focus block").trim() || "Focus block",
+    window: schedule.window || "17:00-18:00",
+    enabled: schedule.enabled !== false
+  })).slice(0, 12);
 }
 
 function uniqueList(items){
@@ -835,14 +1074,20 @@ function uniqueList(items){
   });
 }
 
+function clamp(value, min, max){
+  const number = Number.isFinite(value) ? value : min;
+  return Math.max(min, Math.min(max, number));
+}
+
 function shieldScore(shield = me().shield){
   const rules = shield.rules.filter(rule => rule.enabled).reduce((sum, rule) => sum + Number(rule.weight || 0), 0);
   const apps = Math.min(18, shield.apps.length * 3);
   const sites = Math.min(18, shield.websites.length * 3);
   const allow = Math.min(12, shield.allow.length * 3);
+  const schedules = Math.min(12, (shield.schedules || []).filter(schedule => schedule.enabled).length * 4);
   const strict = shield.strict ? 14 : 0;
   const active = shield.active ? 8 : 0;
-  return Math.min(100, rules + apps + sites + allow + strict + active);
+  return Math.min(100, rules + apps + sites + allow + schedules + strict + active);
 }
 
 function isShieldLocked(){
@@ -952,8 +1197,11 @@ function saveLocal(){
 
 function render(){
   ensureState();
+  refreshFocusState();
   renderShell();
   renderDashboard();
+  renderFocus();
+  renderTasks();
   renderMap();
   renderSubjects();
   renderBuild();
@@ -989,6 +1237,9 @@ function renderDashboard(){
   const done = contexts.filter(item => isDone(item.goal, player, journey.id)).length;
   const current = selectedContext();
   const shield = player.shield;
+  const focus = player.focus;
+  const openTasks = player.tasks.filter(task => !task.done);
+  const activeReminder = player.reminders.find(reminder => reminder.enabled);
 
   $("journeyTheme").textContent = journey.theme;
   $("journeyTitle").textContent = journey.title;
@@ -1022,6 +1273,33 @@ function renderDashboard(){
     ["Sessions", shield.sessions]
   ]);
 
+  $("focusStatusTitle").textContent = focus.running ? "Running" : `${capitalize(focus.mode)} ready`;
+  $("focusPreview").textContent = focusClockText(focus);
+  $("focusMiniStats").innerHTML = detailRows([
+    ["Mode", capitalize(focus.mode)],
+    ["Target", focusTargetTitle(focus.activeTaskId) || "Choose"],
+    ["History", focus.sessions.length],
+    ["Strict", focus.strict ? "On" : "Off"]
+  ]);
+
+  $("dashboardToday").innerHTML = [
+    ...openTasks.slice(0, 3).map(task => `
+      <button type="button" class="miniTask ${task.done ? "done" : ""}" data-dashboard-task="${escapeAttr(task.id)}">
+        <span></span><b>${escapeHTML(task.title)}</b>
+      </button>
+    `),
+    activeReminder ? `
+      <button type="button" class="miniReminder" data-page-link="tasks">
+        <span></span><b>${escapeHTML(activeReminder.time)} / ${escapeHTML(activeReminder.title)}</b>
+      </button>
+    ` : ""
+  ].filter(Boolean).join("") || `<div class="empty">No open tasks. Add one from Tasks.</div>`;
+  document.querySelectorAll("[data-dashboard-task]").forEach(button => {
+    button.onclick = () => {
+      toggleTask(button.dataset.dashboardTask);
+    };
+  });
+
   $("dashboardSubjects").innerHTML = journey.subjects.map(subject => {
     const pct = percent(contextsForSubject(subject, journey), player, journey.id);
     return `
@@ -1038,6 +1316,77 @@ function renderDashboard(){
       setPage("map");
     };
   });
+  document.querySelectorAll("#dashboardToday [data-page-link]").forEach(button => {
+    button.onclick = () => setPage(button.dataset.pageLink);
+  });
+}
+
+function renderFocus(){
+  const player = me();
+  const focus = player.focus;
+  const targetTitle = focusTargetTitle(focus.activeTaskId);
+
+  $("focusModeTitle").textContent = focus.running ? `${capitalize(focus.mode)} running` : `${capitalize(focus.mode)} session`;
+  $("focusSubtitle").textContent = focus.strict
+    ? "Strict shield will lock the plan while the session runs."
+    : "Attach a session to a task or journey dot, then keep the next move visible.";
+  $("focusClock").textContent = focusClockText(focus);
+  $("focusClock").closest(".focusDial").style.setProperty("--progress", `${focusProgress(focus)}%`);
+  $("focusPhase").textContent = focus.running
+    ? `${focus.ambient} / ${targetTitle || "No target"}`
+    : focus.strict ? "Strict ready" : "Ready";
+  $("startFocusSession").disabled = focus.running;
+  $("stopFocusSession").disabled = !focus.running;
+  setFieldValue("focusMinutes", focus.focusMinutes);
+  setFieldValue("breakMinutes", focus.breakMinutes);
+  setFieldValue("ambientSound", focus.ambient);
+  $("focusStrict").checked = focus.strict;
+
+  document.querySelectorAll("[data-focus-mode]").forEach(button => {
+    button.classList.toggle("active", button.dataset.focusMode === focus.mode);
+    button.onclick = () => setFocusMode(button.dataset.focusMode);
+  });
+
+  $("focusTaskSelect").innerHTML = focusSelectOptions(focus.activeTaskId);
+  $("focusTarget").innerHTML = focusTargetRows(focus.activeTaskId);
+  $("sessionList").innerHTML = focus.sessions.length ? focus.sessions.map(session => `
+    <div class="sessionRow">
+      <span></span>
+      <div><b>${escapeHTML(session.title)}</b><small>${escapeHTML(session.minutes)} min / ${escapeHTML(capitalize(session.mode))} / ${escapeHTML(session.taskTitle || "No target")}</small></div>
+      <strong>${escapeHTML(relativeTime(session.at))}</strong>
+    </div>
+  `).join("") : `<div class="empty">No focus sessions yet.</div>`;
+
+  scheduleFocusTicker();
+}
+
+function renderTasks(){
+  const player = me();
+  const tasks = player.tasks;
+  const reminders = player.reminders;
+
+  $("taskList").innerHTML = tasks.length ? tasks.map(task => `
+    <div class="taskRow ${task.done ? "done" : ""}">
+      <button type="button" class="taskCheck" data-task-toggle="${escapeAttr(task.id)}" aria-label="Toggle task"><span></span></button>
+      <div><b>${escapeHTML(task.title)}</b><small>${escapeHTML(task.area)} / ${escapeHTML(task.priority)} priority${task.linkedGoalId ? " / journey linked" : ""}</small></div>
+      <button type="button" data-task-focus="${escapeAttr(task.id)}">Focus</button>
+      <button type="button" data-task-remove="${escapeAttr(task.id)}">Remove</button>
+    </div>
+  `).join("") : `<div class="empty">No tasks yet.</div>`;
+
+  $("reminderList").innerHTML = reminders.length ? reminders.map(reminder => `
+    <div class="reminderRow ${reminder.enabled ? "enabled" : ""}">
+      <button type="button" class="reminderSwitch" data-reminder-toggle="${escapeAttr(reminder.id)}" aria-label="Toggle reminder"><span></span></button>
+      <div><b>${escapeHTML(reminder.title)}</b><small>${escapeHTML(reminder.time)} / ${escapeHTML(reminder.repeat)}</small></div>
+      <button type="button" data-reminder-remove="${escapeAttr(reminder.id)}">Remove</button>
+    </div>
+  `).join("") : `<div class="empty">No reminders yet.</div>`;
+
+  document.querySelectorAll("[data-task-toggle]").forEach(button => button.onclick = () => toggleTask(button.dataset.taskToggle));
+  document.querySelectorAll("[data-task-focus]").forEach(button => button.onclick = () => focusTask(button.dataset.taskFocus));
+  document.querySelectorAll("[data-task-remove]").forEach(button => button.onclick = () => removeTask(button.dataset.taskRemove));
+  document.querySelectorAll("[data-reminder-toggle]").forEach(button => button.onclick = () => toggleReminder(button.dataset.reminderToggle));
+  document.querySelectorAll("[data-reminder-remove]").forEach(button => button.onclick = () => removeReminder(button.dataset.reminderRemove));
 }
 
 function renderMap(){
@@ -1201,6 +1550,7 @@ function renderShield(){
   const locked = isShieldLocked();
   $("shieldSubtitle").textContent = shield.active ? (locked ? "Strict shield is active." : "Shield is active.") : "Shield is ready.";
   $("shieldScore").textContent = score;
+  $("shieldScore").closest(".shieldScore").style.setProperty("--progress", `${score}%`);
   $("activateShield").disabled = shield.active;
   $("endShield").disabled = !shield.active;
   $("strictMode").checked = shield.strict;
@@ -1222,10 +1572,27 @@ function renderShield(){
       <strong>+${rule.weight}</strong>
     </button>
   `).join("");
+  $("usageList").innerHTML = shield.usage.map(item => {
+    const pct = Math.min(100, Math.round(item.minutes / item.limit * 100));
+    return `
+      <div class="usageRow">
+        <div><b>${escapeHTML(item.name)}</b><small>${escapeHTML(item.minutes)} min today / ${escapeHTML(item.limit)} min target</small></div>
+        <div class="usageBar"><span style="width:${pct}%"></span></div>
+      </div>
+    `;
+  }).join("");
+  $("scheduleList").innerHTML = shield.schedules.map(schedule => `
+    <button type="button" class="scheduleRow ${schedule.enabled ? "enabled" : ""}" data-schedule="${escapeAttr(schedule.id)}" ${locked ? "disabled" : ""}>
+      <span></span>
+      <div><b>${escapeHTML(schedule.title)}</b><small>${escapeHTML(schedule.window)}</small></div>
+      <strong>${schedule.enabled ? "On" : "Off"}</strong>
+    </button>
+  `).join("");
 
   document.querySelectorAll("[data-shield-preset]").forEach(button => button.onclick = () => applyShieldPreset(button.dataset.shieldPreset));
   document.querySelectorAll("[data-remove-item]").forEach(button => button.onclick = () => removeShieldItem(button.dataset.list, button.dataset.removeItem));
   document.querySelectorAll("[data-rule]").forEach(button => button.onclick = () => toggleShieldRule(button.dataset.rule));
+  document.querySelectorAll("[data-schedule]").forEach(button => button.onclick = () => toggleSchedule(button.dataset.schedule));
 }
 
 function renderCleanList(items, type, locked){
@@ -1334,6 +1701,30 @@ function rankFor(xp){
   if(value >= 450) return "Ranger";
   if(value >= 160) return "Scout";
   return "Rookie";
+}
+
+function capitalize(value){
+  const text = String(value || "");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function formatSeconds(totalSeconds){
+  const total = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const two = value => String(value).padStart(2, "0");
+  return hours ? `${hours}:${two(minutes)}:${two(seconds)}` : `${two(minutes)}:${two(seconds)}`;
+}
+
+function relativeTime(timestamp){
+  const diff = Math.max(0, Date.now() - Number(timestamp || Date.now()));
+  const minutes = Math.floor(diff / 60000);
+  if(minutes < 1) return "now";
+  if(minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if(hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
 }
 
 function selectSubject(subjectId){
@@ -1711,6 +2102,303 @@ function endShield(){
   pushState();
 }
 
+function toggleSchedule(scheduleId){
+  if(isShieldLocked()){
+    message("Strict shield is active.");
+    return;
+  }
+  const schedule = me().shield.schedules.find(item => item.id === scheduleId);
+  if(!schedule) return;
+  schedule.enabled = !schedule.enabled;
+  message(`${schedule.title} ${schedule.enabled ? "on" : "off"}.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function readFocusSettings(){
+  const focus = me().focus;
+  if(!focus.running){
+    focus.focusMinutes = clamp(Number($("focusMinutes").value || focus.focusMinutes), 5, 180);
+    focus.breakMinutes = clamp(Number($("breakMinutes").value || focus.breakMinutes), 1, 60);
+  }
+  focus.ambient = $("ambientSound").value || focus.ambient;
+  focus.strict = $("focusStrict").checked;
+  focus.activeTaskId = $("focusTaskSelect").value || "";
+}
+
+function saveFocusSettings(){
+  readFocusSettings();
+  message("Focus settings saved.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function setFocusMode(mode){
+  const focus = me().focus;
+  if(focus.running){
+    message("Stop the current session before changing mode.");
+    return;
+  }
+  focus.mode = ["pomodoro", "timer", "stopwatch"].includes(mode) ? mode : "pomodoro";
+  message(`${capitalize(focus.mode)} selected.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function startFocusSession(){
+  const player = me();
+  const focus = player.focus;
+  if(focus.running) return;
+  readFocusSettings();
+  const now = Date.now();
+  focus.running = true;
+  focus.startedAt = now;
+  focus.endsAt = focus.mode === "stopwatch" ? null : now + focus.focusMinutes * 60 * 1000;
+  focus.elapsedSeconds = 0;
+  focus.phase = "focus";
+  if(focus.strict){
+    player.shield.active = true;
+    player.shield.strict = true;
+    player.shield.sessions += 1;
+  }
+  addActivity(`started ${focus.mode} focus`);
+  message(focus.strict ? "Focus started with strict shield." : "Focus started.");
+  playSound("start");
+  scheduleFocusTicker();
+  render();
+  pushState();
+}
+
+function stopFocusSession(){
+  if(!me().focus.running) return;
+  finishFocusSession(false, true);
+}
+
+function finishFocusSession(automatic = false, renderAfter = false){
+  const player = me();
+  const focus = player.focus;
+  const elapsed = focusElapsedSeconds(focus, automatic);
+  const minutes = Math.max(1, Math.round(elapsed / 60));
+  const taskTitle = focusTargetTitle(focus.activeTaskId);
+  focus.running = false;
+  focus.startedAt = null;
+  focus.endsAt = null;
+  focus.elapsedSeconds = 0;
+  focus.phase = automatic ? "break" : "stopped";
+  if(elapsed >= 30 || automatic){
+    focus.sessions.unshift(normalizeSession({
+      id: uid("session"),
+      title: automatic ? "Focus complete" : "Focus saved",
+      minutes,
+      mode: focus.mode,
+      ambient: focus.ambient,
+      taskTitle,
+      at: Date.now()
+    }));
+    focus.sessions = focus.sessions.slice(0, 30);
+    player.xp += Math.max(6, Math.round(minutes * 1.3));
+    player.coins += Math.max(1, Math.round(minutes / 12));
+    player.streak += 1;
+    addActivity(`finished ${minutes} min focus`);
+    message(automatic ? `Focus complete. Take ${focus.breakMinutes} min break.` : `${minutes} min focus saved.`);
+    playSound(automatic ? "level" : "complete");
+    confetti(automatic ? 36 : 14);
+  }else{
+    message("Session stopped.");
+    playSound("pause");
+  }
+  scheduleFocusTicker();
+  if(renderAfter) render();
+  pushState();
+}
+
+function refreshFocusState(){
+  const focus = me().focus;
+  if(focus.running && focus.mode !== "stopwatch" && focus.endsAt && Date.now() >= focus.endsAt){
+    finishFocusSession(true, false);
+  }
+}
+
+function focusElapsedSeconds(focus = me().focus, automatic = false){
+  if(focus.mode !== "stopwatch" && automatic) return focus.focusMinutes * 60;
+  const started = Number(focus.startedAt || Date.now());
+  const running = focus.running ? Math.max(0, Math.floor((Date.now() - started) / 1000)) : 0;
+  return Math.max(0, Math.floor(Number(focus.elapsedSeconds || 0) + running));
+}
+
+function focusRemainingSeconds(focus = me().focus){
+  if(focus.mode === "stopwatch") return focusElapsedSeconds(focus);
+  if(focus.running && focus.endsAt) return Math.max(0, Math.ceil((focus.endsAt - Date.now()) / 1000));
+  return focus.focusMinutes * 60;
+}
+
+function focusClockText(focus = me().focus){
+  return formatSeconds(focusRemainingSeconds(focus));
+}
+
+function focusProgress(focus = me().focus){
+  const total = Math.max(1, focus.focusMinutes * 60);
+  if(focus.mode === "stopwatch") return Math.min(100, Math.round(focusElapsedSeconds(focus) / total * 100));
+  if(!focus.running) return 0;
+  return Math.min(100, Math.round((1 - focusRemainingSeconds(focus) / total) * 100));
+}
+
+function scheduleFocusTicker(){
+  const running = me().focus.running;
+  if(running && !focusTicker){
+    focusTicker = setInterval(() => {
+      refreshFocusState();
+      render();
+    }, 1000);
+  }
+  if(!running && focusTicker){
+    clearInterval(focusTicker);
+    focusTicker = null;
+  }
+}
+
+function focusSelectOptions(activeId){
+  const current = selectedContext();
+  const tasks = me().tasks.filter(task => !task.done || task.id === activeId);
+  const currentOption = current ? `<option value="current-goal" ${activeId === "current-goal" ? "selected" : ""}>Current dot: ${escapeHTML(current.goal.title)}</option>` : "";
+  const taskOptions = tasks.map(task => `<option value="${escapeAttr(task.id)}" ${activeId === task.id ? "selected" : ""}>Task: ${escapeHTML(task.title)}</option>`).join("");
+  return `
+    <option value="" ${!activeId ? "selected" : ""}>No target</option>
+    ${currentOption}
+    ${taskOptions}
+  `;
+}
+
+function focusTargetRows(activeId){
+  const task = me().tasks.find(item => item.id === activeId);
+  if(task){
+    const linked = task.linkedGoalId === "current" ? selectedContext()?.goal.title : task.linkedGoalId ? "Journey goal" : "None";
+    return detailRows([
+      ["Target", task.title],
+      ["Area", task.area],
+      ["Priority", task.priority],
+      ["Linked", linked || "None"]
+    ]);
+  }
+  if(activeId === "current-goal"){
+    const context = selectedContext();
+    if(context){
+      return detailRows([
+        ["Target", context.goal.title],
+        ["Subject", context.subject.name],
+        ["Unit", context.unit.title],
+        ["Reward", `+${context.goal.points} XP`]
+      ]);
+    }
+  }
+  return `<div class="empty">Pick a task or current journey dot.</div>`;
+}
+
+function focusTargetTitle(activeId){
+  if(!activeId) return "";
+  if(activeId === "current-goal") return selectedContext()?.goal.title || "Current dot";
+  const task = me().tasks.find(item => item.id === activeId);
+  return task?.title || "";
+}
+
+function addTaskFromInput(){
+  const title = $("taskInput").value.trim();
+  if(!title){
+    message("Add a task name first.");
+    return;
+  }
+  me().tasks.unshift({
+    id: uid("task"),
+    title,
+    area: "Today",
+    priority: "Medium",
+    done: false,
+    linkedGoalId: "",
+    createdAt: Date.now()
+  });
+  $("taskInput").value = "";
+  message("Task added.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function toggleTask(taskId){
+  const task = me().tasks.find(item => item.id === taskId);
+  if(!task) return;
+  task.done = !task.done;
+  if(task.done){
+    me().xp += 4;
+    me().coins += 1;
+    message("Task checked off.");
+    playSound("complete");
+    confetti(10);
+  }else{
+    message("Task reopened.");
+    playSound("tap");
+  }
+  render();
+  pushState();
+}
+
+function focusTask(taskId){
+  const task = me().tasks.find(item => item.id === taskId);
+  if(!task) return;
+  me().focus.activeTaskId = task.id;
+  setPage("focus");
+  message(`${task.title} attached to focus.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function removeTask(taskId){
+  const player = me();
+  player.tasks = player.tasks.filter(task => task.id !== taskId);
+  if(player.focus.activeTaskId === taskId) player.focus.activeTaskId = "";
+  message("Task removed.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function addReminderFromInput(){
+  const title = $("reminderTitle").value.trim();
+  const time = $("reminderTime").value || "17:30";
+  const repeat = $("reminderRepeat").value || "Today";
+  if(!title){
+    message("Add a reminder title first.");
+    return;
+  }
+  me().reminders.push({ id: uid("reminder"), title, time, repeat, enabled: true });
+  $("reminderTitle").value = "";
+  message("Reminder added.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function toggleReminder(reminderId){
+  const reminder = me().reminders.find(item => item.id === reminderId);
+  if(!reminder) return;
+  reminder.enabled = !reminder.enabled;
+  message(`${reminder.title} ${reminder.enabled ? "on" : "off"}.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function removeReminder(reminderId){
+  me().reminders = me().reminders.filter(reminder => reminder.id !== reminderId);
+  message("Reminder removed.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
 function addActivity(text){
   state.activity.unshift({ id: uid("activity"), name: profile.display_name || "Player", text, at: Date.now() });
   state.activity = state.activity.slice(0, 80);
@@ -1957,6 +2645,20 @@ function bind(){
   $("createJourney").onclick = createCustomJourney;
   $("previewJourney").onclick = previewJourney;
   $("loadOutline").onclick = loadOutline;
+  $("startFocusSession").onclick = startFocusSession;
+  $("stopFocusSession").onclick = stopFocusSession;
+  $("saveFocusSettings").onclick = saveFocusSettings;
+  $("focusTaskSelect").onchange = event => {
+    me().focus.activeTaskId = event.target.value;
+    message(event.target.value ? "Focus target attached." : "Focus target cleared.");
+    render();
+    pushState();
+  };
+  $("addTask").onclick = addTaskFromInput;
+  $("taskInput").addEventListener("keydown", event => {
+    if(event.key === "Enter") addTaskFromInput();
+  });
+  $("addReminder").onclick = addReminderFromInput;
   $("activateShield").onclick = activateShield;
   $("endShield").onclick = endShield;
   $("strictMode").onchange = event => setStrictMode(event.target.checked);

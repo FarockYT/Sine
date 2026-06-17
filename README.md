@@ -1,6 +1,6 @@
 # NeuroQuest Journey
 
-A public gamified journey OS for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through separate pages for dashboard, dot map, subjects, builder, shield, quizzes, public room, and profile.
+A public gamified focus and journey OS for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through separate pages for dashboard, focus, tasks, dot map, subjects, builder, shield, quizzes, public room, and profile.
 
 ## What It Does
 
@@ -9,9 +9,11 @@ A public gamified journey OS for Android APK sideload use and PC web use. Everyo
 - PC web deployment through Vercel
 - Multiple public journeys in one shared world
 - Separate app pages instead of a single tag-style surface
+- Focus page with Pomodoro, timer, stopwatch, ambient sound choice, strict shield toggle, session history, and task or journey-dot targeting
+- Task command center with checkable tasks, focus-target handoff, reminders, and an ADHD-friendly capture/choose/focus/close flow
 - 10th Portion Quest preset with Biology, Physics, Prose, Grammar, History, and Maths
 - Each journey is split into subjects, units, and micro goals such as 2m questions, 5m answer frames, recall rounds, diagrams, practice, and quiz gates
-- Distraction Shield page with app rows, website rows, study allowlist, strict mode, shield score, and quick presets
+- Distraction Shield page with app rows, website rows, study allowlist, strict mode, shield score, quick presets, usage-pressure bars, and smart block schedules
 - Custom syllabus builder with a simple outline format:
 
 ```text
@@ -28,6 +30,8 @@ Unit: Life Processes
 - Public player list and activity feed
 - Optional sound effects
 - Offline-capable install metadata via service worker and web manifest
+
+The shield and focus flows are built as APK-ready planning controls. Actual Android app blocking would need a native enforcement layer such as accessibility, VPN/DNS, or platform screen-time permissions wired into the Capacitor shell.
 
 ## Run Locally
 

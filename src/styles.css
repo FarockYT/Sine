@@ -210,7 +210,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
 .page{display:none}
 .page.active{display:block;animation:pageIn .16s ease-out}
 @keyframes pageIn{from{opacity:.55;transform:translateY(5px)}to{opacity:1;transform:none}}
-.panel,.heroPanel,.shieldHero{
+.panel,.heroPanel,.shieldHero,.focusHero{
   border:1px solid var(--line);
   border-radius:var(--radius);
   background:rgba(255,255,255,.97);
@@ -224,7 +224,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   gap:12px;
   margin-bottom:14px;
 }
-.panelHead p,.heroPanel p,.mapPanel p,.detailPanel p,.shieldHero p,.profilePanel p{
+.panelHead p,.heroPanel p,.mapPanel p,.detailPanel p,.shieldHero p,.focusHero p,.profilePanel p{
   color:var(--muted);
   font-weight:820;
   line-height:1.45;
@@ -246,7 +246,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
     #fff;
 }
 .heroPanel h2{font-size:1.8rem}
-.progressOrb,.shieldScore{
+.progressOrb,.shieldScore,.focusDial{
   --progress:0%;
   width:112px;
   height:112px;
@@ -257,12 +257,12 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   background:radial-gradient(circle,#fff 0 52%,transparent 53%),conic-gradient(var(--teal) 0 var(--progress),#e5edf7 var(--progress) 100%);
   box-shadow:inset 0 0 0 8px rgba(255,255,255,.8);
 }
-.progressOrb b,.shieldScore b{
+.progressOrb b,.shieldScore b,.focusDial b{
   display:block;
   font-size:1.42rem;
   line-height:1;
 }
-.progressOrb span,.shieldScore span{
+.progressOrb span,.shieldScore span,.focusDial span{
   color:var(--muted);
   font-size:.72rem;
   font-weight:1000;
@@ -290,7 +290,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   font-size:1.1rem;
   overflow-wrap:anywhere;
 }
-.currentPanel,.shieldPanel{display:grid;gap:10px;align-content:start}
+.currentPanel,.shieldPanel,.focusPanel,.taskPanel{display:grid;gap:10px;align-content:start}
 .widePanel{grid-column:1 / -1}
 .dotMeta{
   display:grid;
@@ -323,6 +323,198 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   border-radius:999px;
   background:linear-gradient(90deg,var(--teal),var(--blue),var(--pink));
   transition:width .2s ease;
+}
+.focusPreview{
+  min-height:86px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  color:#0f172a;
+  background:
+    linear-gradient(135deg,rgba(15,118,110,.12),rgba(37,99,235,.1)),
+    #fff;
+  font-size:2rem;
+  font-weight:1000;
+  font-variant-numeric:tabular-nums;
+}
+.todayList,.taskList,.reminderList,.sessionList,.usageList,.scheduleList{
+  display:grid;
+  gap:9px;
+}
+.miniTask,.miniReminder{
+  width:100%;
+  min-height:44px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:9px;
+  color:var(--ink);
+  background:#fff;
+  box-shadow:none;
+  text-align:left;
+}
+.miniTask span,.miniReminder span{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--gold);
+}
+.miniTask.done span{background:var(--green)}
+.focusPage,.tasksPage{
+  display:grid;
+  gap:14px;
+}
+.focusHero{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(240px,.32fr);
+  gap:16px;
+  align-items:center;
+  background:
+    linear-gradient(90deg,rgba(15,118,110,.14),rgba(255,255,255,.96) 45%,rgba(217,119,6,.13)),
+    #fff;
+}
+.focusDial{
+  background:radial-gradient(circle,#fff 0 52%,transparent 53%),conic-gradient(var(--gold) 0 var(--progress),#e5edf7 var(--progress) 100%);
+  font-variant-numeric:tabular-nums;
+}
+.focusGrid,.tasksPage{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+}
+.focusGrid{
+  display:grid;
+  gap:14px;
+}
+.tasksPage{
+  display:grid;
+}
+.segmented{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:12px;
+}
+.segmented button{
+  color:var(--ink);
+  background:#fff;
+  border-color:var(--line);
+  box-shadow:none;
+}
+.segmented button.active{
+  color:#fff;
+  background:var(--teal);
+  border-color:var(--teal);
+}
+.settingsGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:12px;
+}
+.focusTarget{
+  margin-top:10px;
+}
+.sessionRow,.taskRow,.reminderRow,.usageRow,.scheduleRow{
+  min-height:58px;
+  display:grid;
+  align-items:center;
+  gap:10px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:10px;
+  background:#fff;
+}
+.sessionRow{
+  grid-template-columns:auto minmax(0,1fr) auto;
+}
+.sessionRow>span{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:var(--teal);
+}
+.sessionRow small,.taskRow small,.reminderRow small,.usageRow small,.scheduleRow small{
+  display:block;
+  color:var(--muted);
+  font-weight:830;
+  line-height:1.35;
+  margin-top:3px;
+}
+.taskRow{
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+}
+.taskRow.done{
+  border-color:#86efac;
+  background:var(--soft-green);
+}
+.taskRow.done b{text-decoration:line-through;text-decoration-thickness:2px}
+.taskCheck,.reminderSwitch{
+  width:34px;
+  min-height:34px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  color:var(--ink);
+  background:#fff;
+  border:1px solid var(--line);
+  box-shadow:none;
+}
+.taskCheck span,.reminderSwitch span{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#cbd5e1;
+}
+.taskRow.done .taskCheck span,.reminderRow.enabled .reminderSwitch span{background:var(--green)}
+.taskRow>button:not(.taskCheck),.reminderRow>button:not(.reminderSwitch){
+  min-height:34px;
+  color:#334155;
+  background:#fff;
+  border-color:var(--line);
+  box-shadow:none;
+}
+.reminderForm{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 130px 140px auto;
+  gap:8px;
+  margin-bottom:10px;
+}
+.reminderRow{
+  grid-template-columns:auto minmax(0,1fr) auto;
+}
+.reminderRow.enabled{
+  border-color:#bfdbfe;
+  background:var(--soft-blue);
+}
+.plannerSteps{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.plannerSteps div{
+  min-height:112px;
+  display:grid;
+  align-content:start;
+  gap:8px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px;
+  background:#fff;
+}
+.plannerSteps span{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+}
+.plannerSteps small{
+  color:var(--muted);
+  font-weight:830;
+  line-height:1.4;
 }
 .subjectProgressList,.subjectTable,.unitList,.presetRows,.cleanList,.ruleList,.quizQueue,.playerList,.activityList,.installRows,.shieldPresetRows{
   display:grid;
@@ -530,7 +722,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
     #fff;
 }
 .shieldScore{
-  background:radial-gradient(circle,#fff 0 52%,transparent 53%),conic-gradient(var(--blue) 0 72%,#e5edf7 72% 100%);
+  background:radial-gradient(circle,#fff 0 52%,transparent 53%),conic-gradient(var(--blue) 0 var(--progress),#e5edf7 var(--progress) 100%);
 }
 .shieldGrid{
   display:grid;
@@ -569,6 +761,39 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   box-shadow:none;
 }
 .ruleRow.enabled>span{background:var(--green)}
+.usageRow{
+  grid-template-columns:1fr;
+}
+.usageBar{
+  height:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e5edf7;
+}
+.usageBar span{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--teal),var(--gold),var(--red));
+}
+.scheduleRow{
+  width:100%;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  color:var(--ink);
+  box-shadow:none;
+  text-align:left;
+}
+.scheduleRow>span{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#cbd5e1;
+}
+.scheduleRow.enabled{
+  border-color:#86efac;
+  background:var(--soft-green);
+}
+.scheduleRow.enabled>span{background:var(--green)}
 .checkLine{
   display:flex;
   align-items:center;
@@ -723,7 +948,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   .sideNav{
     grid-template-columns:repeat(4,minmax(0,1fr));
   }
-  .dashboardGrid,.mapPage,.subjectsPage,.buildPage,.quizPage,.profilePage,.publicPage,.shieldGrid,.shieldHero{
+  .dashboardGrid,.mapPage,.subjectsPage,.buildPage,.quizPage,.profilePage,.publicPage,.shieldGrid,.shieldHero,.focusGrid,.focusHero,.tasksPage{
     grid-template-columns:1fr;
   }
   .subjectList,.detailPanel{position:static}
@@ -734,21 +959,22 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   .workspace{padding:10px}
   .sidebar{padding:12px}
   .sideNav{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .topbar,.heroPanel,.shieldHero,.panelHead{
+  .topbar,.heroPanel,.shieldHero,.focusHero,.panelHead{
     align-items:flex-start;
     flex-direction:column;
   }
   .topStatus{justify-content:flex-start}
-  .heroPanel,.shieldHero,.panel{padding:12px}
+  .heroPanel,.shieldHero,.focusHero,.panel{padding:12px}
   .heroPanel h2{font-size:1.35rem}
-  .progressOrb,.shieldScore{width:84px;height:84px}
-  .metricGrid,.rowStats,.detailRows,.roomStats,.shapePreview,.dotMeta,.actionRow,.unitDots{
+  .progressOrb,.shieldScore,.focusDial{width:84px;height:84px}
+  .metricGrid,.rowStats,.detailRows,.roomStats,.shapePreview,.dotMeta,.actionRow,.unitDots,.settingsGrid,.segmented,.plannerSteps,.reminderForm{
     grid-template-columns:1fr;
   }
   .dotMap{width:960px;height:520px}
   .mapDot.active{width:44px;height:44px}
-  .progressRow,.tableRow,.presetRow,.quizRow,.subjectButton,.unitDotRow,.ruleRow{
+  .progressRow,.tableRow,.presetRow,.quizRow,.subjectButton,.unitDotRow,.ruleRow,.taskRow,.reminderRow,.scheduleRow,.sessionRow{
     grid-template-columns:auto minmax(0,1fr);
   }
-  .progressRow strong,.tableRow strong,.ruleRow strong{justify-self:start}
+  .taskRow>button:not(.taskCheck),.reminderRow>button:not(.reminderSwitch){grid-column:2}
+  .progressRow strong,.tableRow strong,.ruleRow strong,.scheduleRow strong,.sessionRow strong{justify-self:start}
 }
