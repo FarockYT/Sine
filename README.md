@@ -10,6 +10,7 @@ A public gamified journey-map app for Android APK sideload use and PC web use. E
 - Multiple public journeys in one shared world
 - 10th Portion Quest preset with Biology, Physics, Prose, Grammar, History, and Maths
 - Each journey is split into subjects, units, and micro goals such as 2m questions, 5m answer frames, recall rounds, diagrams, practice, and quiz gates
+- Distraction Shield page with app blocks, website blocks, study allowlist, strict mode, shield score, and quick block presets
 - Custom syllabus builder with a simple outline format:
 
 ```text

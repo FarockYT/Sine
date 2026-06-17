@@ -8,7 +8,7 @@ const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const PUBLIC_PATH_CODE = "PUBLIC-JOURNEY-PATH";
 const colors = ["#2563eb", "#0f766e", "#7c3aed", "#d97706", "#db2777", "#16a34a", "#0891b2", "#dc2626"];
-const pages = ["overview", "journeys", "quiz", "public", "profile"];
+const pages = ["overview", "blocks", "journeys", "quiz", "public", "profile"];
 const pageAliases = { path: "overview", create: "journeys" };
 const storageKeys = {
   client: "nqJourneyClientId",
@@ -32,6 +32,30 @@ Unit: Tenses
 - 2m drill: present perfect
 - 5m worksheet: mixed tense edits
 ? Quiz | Which tense uses has or have? | Present perfect | Simple past | Future simple | 0`;
+
+const blockPresets = [
+  {
+    id: "social-scroll",
+    title: "Social Scroll",
+    apps: ["Instagram", "Snapchat", "TikTok", "Facebook"],
+    websites: ["instagram.com/reels", "youtube.com/shorts", "tiktok.com"],
+    reward: 35
+  },
+  {
+    id: "study-mode",
+    title: "Study Mode",
+    apps: ["YouTube Shorts", "Games", "Shopping", "Messages"],
+    websites: ["reddit.com", "x.com", "netflix.com"],
+    reward: 28
+  },
+  {
+    id: "night-lock",
+    title: "Night Lock",
+    apps: ["Instagram", "YouTube", "Discord", "Games"],
+    websites: ["youtube.com", "twitch.tv", "primevideo.com"],
+    reward: 32
+  }
+];
 
 const journeyTemplates = [
   {
@@ -266,6 +290,7 @@ app.innerHTML = `
     <div class="statusPills">
       <span class="pill" id="connectionPill">LOCAL</span>
       <span class="pill" id="journeyPill">CLASS 10</span>
+      <span class="pill" id="blockPill">SHIELD READY</span>
       <span class="pill" id="apkPill">APK READY</span>
       <button class="pill soundButton" id="soundToggle" type="button">SOUND OFF</button>
     </div>
@@ -273,6 +298,7 @@ app.innerHTML = `
 
   <nav class="tabs" aria-label="Journey pages">
     <button type="button" data-page-link="overview">Overview</button>
+    <button type="button" data-page-link="blocks">Blocks</button>
     <button type="button" data-page-link="journeys">Journeys</button>
     <button type="button" data-page-link="quiz">Quiz</button>
     <button type="button" data-page-link="public">Public</button>
@@ -341,8 +367,111 @@ app.innerHTML = `
             <div><span>XP</span><b id="xpView">0</b></div>
             <div><span>Coins</span><b id="coinView">0</b></div>
             <div><span>Streak</span><b id="streakView">0</b></div>
+            <div><span>Rank</span><b id="rankView">Rookie</b></div>
+          </div>
+
+          <div class="shieldMini">
+            <div>
+              <label>Distraction Shield</label>
+              <b id="shieldMiniStatus">Ready</b>
+            </div>
+            <button type="button" class="secondary small" data-page-link="blocks">Open Blocks</button>
           </div>
         </aside>
+      </section>
+    </section>
+
+    <section class="page" data-page="blocks">
+      <section class="blockHero">
+        <div>
+          <label>Distraction Shield</label>
+          <h2>App blocks, strict rules, and study-safe spaces</h2>
+          <p class="muted" id="blockHeroText">Build a shield before you enter the quest map.</p>
+        </div>
+        <div class="shieldCore" id="shieldCore">
+          <span id="shieldCoreScore">0</span>
+          <small>Shield</small>
+        </div>
+        <div class="consoleActions">
+          <button type="button" class="primary" id="activateShield">Activate Shield</button>
+          <button type="button" class="secondary" id="endShield">End Shield</button>
+        </div>
+      </section>
+
+      <section class="blockLayout">
+        <div class="toolPanel">
+          <div class="boardHead compact">
+            <div>
+              <label>Quick Blocks</label>
+              <h2>Preset shields</h2>
+            </div>
+          </div>
+          <div class="blockPresetGrid" id="blockPresetGrid"></div>
+        </div>
+
+        <div class="toolPanel blockPanel">
+          <div class="boardHead compact">
+            <div>
+              <label>Blocked Apps</label>
+              <h2>Distraction list</h2>
+            </div>
+            <span class="percentBadge" id="blockedAppCount">0</span>
+          </div>
+          <div class="addRow">
+            <input id="blockAppInput" placeholder="App name" />
+            <button type="button" class="primary small" id="addBlockApp">Add</button>
+          </div>
+          <div class="chipWall" id="blockedApps"></div>
+        </div>
+
+        <div class="toolPanel blockPanel">
+          <div class="boardHead compact">
+            <div>
+              <label>Blocked Sites</label>
+              <h2>Web gates</h2>
+            </div>
+            <span class="percentBadge" id="blockedSiteCount">0</span>
+          </div>
+          <div class="addRow">
+            <input id="blockSiteInput" placeholder="website.com or /shorts" />
+            <button type="button" class="primary small" id="addBlockSite">Add</button>
+          </div>
+          <div class="chipWall" id="blockedSites"></div>
+        </div>
+
+        <div class="toolPanel blockPanel">
+          <div class="boardHead compact">
+            <div>
+              <label>Study Allowlist</label>
+              <h2>Safe tools</h2>
+            </div>
+            <span class="percentBadge" id="allowedToolCount">0</span>
+          </div>
+          <div class="addRow">
+            <input id="allowToolInput" placeholder="Notes, Calculator, Dictionary" />
+            <button type="button" class="primary small" id="addAllowTool">Add</button>
+          </div>
+          <div class="chipWall" id="allowedTools"></div>
+        </div>
+
+        <div class="toolPanel blockPanel wide">
+          <div class="boardHead compact">
+            <div>
+              <label>Rules</label>
+              <h2>Shield protocol</h2>
+            </div>
+            <label class="switchLine">
+              <input type="checkbox" id="strictMode" />
+              <span>Strict</span>
+            </label>
+          </div>
+          <div class="ruleGrid" id="blockRules"></div>
+        </div>
+
+        <div class="toolPanel blockPanel">
+          <label>Insights</label>
+          <div class="blockStats" id="blockStats"></div>
+        </div>
       </section>
     </section>
 
@@ -807,6 +936,7 @@ function defaultPlayer(){
     coins: 0,
     streak: 0,
     focus: 0,
+    blockPlan: defaultBlockPlan(),
     online: true,
     active: false
   };
@@ -830,8 +960,80 @@ function normalizePlayer(player){
   player.coins = Number(player.coins || 0);
   player.streak = Number(player.streak || 0);
   player.focus = Number(player.focus || 0);
+  player.blockPlan = normalizeBlockPlan(player.blockPlan);
   player.online = player.online !== false;
   player.active = player.active || false;
+}
+
+function defaultBlockPlan(){
+  return {
+    active: false,
+    strict: false,
+    activatedAt: null,
+    shieldScore: 42,
+    savedSessions: 0,
+    apps: ["Instagram", "YouTube Shorts", "Games"],
+    websites: ["youtube.com/shorts", "instagram.com/reels"],
+    allowlist: ["Notes", "Calculator", "Dictionary"],
+    rules: [
+      { id: "strict-mode", title: "Strict Mode", detail: "Lock edits while shield is active.", enabled: true, weight: 20 },
+      { id: "shorts-gate", title: "Shorts Gate", detail: "Block reels, shorts, and loop feeds.", enabled: true, weight: 18 },
+      { id: "study-allowlist", title: "Study Allowlist", detail: "Keep only study-safe tools visible.", enabled: true, weight: 16 },
+      { id: "notification-quiet", title: "Quiet Pings", detail: "Mute non-study interruptions.", enabled: false, weight: 12 },
+      { id: "night-lock", title: "Night Lock", detail: "Protect sleep hours from scroll traps.", enabled: false, weight: 14 }
+    ]
+  };
+}
+
+function normalizeBlockPlan(plan){
+  const base = defaultBlockPlan();
+  const next = plan && typeof plan === "object" ? { ...base, ...plan } : base;
+  next.apps = uniqueList(Array.isArray(next.apps) ? next.apps : base.apps);
+  next.websites = uniqueList(Array.isArray(next.websites) ? next.websites : base.websites);
+  next.allowlist = uniqueList(Array.isArray(next.allowlist) ? next.allowlist : base.allowlist);
+  const incomingRules = Array.isArray(next.rules) ? next.rules : [];
+  next.rules = base.rules.map(rule => {
+    const saved = incomingRules.find(item => item.id === rule.id);
+    return { ...rule, ...(saved || {}), enabled: saved ? saved.enabled !== false : rule.enabled };
+  });
+  next.active = Boolean(next.active);
+  next.strict = Boolean(next.strict);
+  next.shieldScore = Number.isFinite(Number(next.shieldScore)) ? Number(next.shieldScore) : blockScore(next);
+  next.savedSessions = Number(next.savedSessions || 0);
+  return next;
+}
+
+function uniqueList(items){
+  const seen = new Set();
+  return items
+    .map(item => String(item || "").trim())
+    .filter(Boolean)
+    .filter(item => {
+      const key = item.toLowerCase();
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function myBlockPlan(){
+  const player = me();
+  player.blockPlan = normalizeBlockPlan(player.blockPlan);
+  return player.blockPlan;
+}
+
+function blockScore(plan = myBlockPlan()){
+  const appScore = Math.min(24, plan.apps.length * 4);
+  const siteScore = Math.min(18, plan.websites.length * 3);
+  const allowScore = Math.min(12, plan.allowlist.length * 3);
+  const ruleScore = plan.rules.filter(rule => rule.enabled).reduce((sum, rule) => sum + Number(rule.weight || 0), 0);
+  const strictBonus = plan.strict ? 14 : 0;
+  const activeBonus = plan.active ? 8 : 0;
+  return Math.min(100, appScore + siteScore + allowScore + ruleScore + strictBonus + activeBonus);
+}
+
+function isShieldLocked(plan = myBlockPlan()){
+  return Boolean(plan.active && plan.strict);
 }
 
 function me(){
@@ -966,6 +1168,7 @@ function render(){
   renderPills();
   renderProfile();
   renderOverview();
+  renderBlocks();
   renderJourneysPage();
   renderActiveConsole();
   renderQuiz();
@@ -975,8 +1178,11 @@ function render(){
 
 function renderPills(){
   const journey = activeJourney();
+  const plan = myBlockPlan();
   $("connectionPill").textContent = roomCode ? "ONLINE PUBLIC" : "LOCAL";
   $("journeyPill").textContent = String(journey.theme || "JOURNEY").toUpperCase();
+  $("blockPill").textContent = plan.active ? "SHIELD ON" : "SHIELD READY";
+  $("blockPill").classList.toggle("active", plan.active);
   $("soundToggle").textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
   $("soundToggle").classList.toggle("active", soundEnabled);
 }
@@ -1208,9 +1414,90 @@ function renderActiveConsole(){
     <span>${done ? "cleared" : "open"}</span>
   `;
   $("completeGoal").textContent = goal.kind === "quiz" && !done ? "Open Quiz" : done ? "Cleared" : "Check Off";
+  $("completeGoal").disabled = done;
   $("xpView").textContent = player.xp;
   $("coinView").textContent = player.coins;
   $("streakView").textContent = player.streak;
+  $("rankView").textContent = rankFor(player.xp);
+  $("shieldMiniStatus").textContent = myBlockPlan().active ? "Active" : `${blockScore(myBlockPlan())}% ready`;
+}
+
+function rankFor(xp){
+  const value = Number(xp || 0);
+  if(value >= 2400) return "Legend";
+  if(value >= 1500) return "Master";
+  if(value >= 900) return "Ace";
+  if(value >= 450) return "Ranger";
+  if(value >= 160) return "Scout";
+  return "Rookie";
+}
+
+function renderBlocks(){
+  const plan = myBlockPlan();
+  plan.shieldScore = blockScore(plan);
+  const locked = isShieldLocked(plan);
+  $("shieldCoreScore").textContent = plan.shieldScore;
+  $("shieldCore").classList.toggle("active", plan.active);
+  $("blockHeroText").textContent = plan.active
+    ? locked ? "Strict shield is holding the block list." : "Shield is active for this quest run."
+    : "Build a shield before you enter the quest map.";
+  $("activateShield").textContent = plan.active ? "Shield Active" : "Activate Shield";
+  $("activateShield").disabled = plan.active;
+  $("endShield").disabled = !plan.active;
+  $("strictMode").checked = plan.strict;
+  $("strictMode").disabled = locked;
+  $("blockedAppCount").textContent = plan.apps.length;
+  $("blockedSiteCount").textContent = plan.websites.length;
+  $("allowedToolCount").textContent = plan.allowlist.length;
+
+  $("blockPresetGrid").innerHTML = blockPresets.map(preset => `
+    <button type="button" class="blockPreset" data-block-preset="${escapeAttr(preset.id)}" ${locked ? "disabled" : ""}>
+      <span>+${preset.reward}</span>
+      <b>${escapeHTML(preset.title)}</b>
+      <small>${preset.apps.length} apps · ${preset.websites.length} sites</small>
+    </button>
+  `).join("");
+
+  $("blockedApps").innerHTML = renderBlockChips(plan.apps, "app", locked);
+  $("blockedSites").innerHTML = renderBlockChips(plan.websites, "site", locked);
+  $("allowedTools").innerHTML = renderBlockChips(plan.allowlist, "allow", locked);
+
+  $("blockRules").innerHTML = plan.rules.map(rule => `
+    <button type="button" class="ruleCard ${rule.enabled ? "enabled" : ""}" data-block-rule="${escapeAttr(rule.id)}" ${locked ? "disabled" : ""}>
+      <span>${rule.enabled ? "ON" : "OFF"}</span>
+      <div>
+        <b>${escapeHTML(rule.title)}</b>
+        <small>${escapeHTML(rule.detail)}</small>
+      </div>
+      <strong>+${rule.weight}</strong>
+    </button>
+  `).join("");
+
+  $("blockStats").innerHTML = `
+    <div><span>Shield</span><b>${plan.shieldScore}%</b></div>
+    <div><span>Strict</span><b>${plan.strict ? "On" : "Off"}</b></div>
+    <div><span>Sessions</span><b>${plan.savedSessions}</b></div>
+    <div><span>Status</span><b>${plan.active ? "Active" : "Ready"}</b></div>
+  `;
+
+  document.querySelectorAll("[data-block-preset]").forEach(button => {
+    button.onclick = () => applyBlockPreset(button.dataset.blockPreset);
+  });
+  document.querySelectorAll("[data-remove-block]").forEach(button => {
+    button.onclick = () => removeBlockItem(button.dataset.blockType, button.dataset.removeBlock);
+  });
+  document.querySelectorAll("[data-block-rule]").forEach(button => {
+    button.onclick = () => toggleBlockRule(button.dataset.blockRule);
+  });
+}
+
+function renderBlockChips(items, type, locked){
+  return items.length ? items.map(item => `
+    <button type="button" class="blockChip" data-remove-block="${escapeAttr(item)}" data-block-type="${escapeAttr(type)}" ${locked ? "disabled" : ""}>
+      <span>${escapeHTML(item)}</span>
+      <b>x</b>
+    </button>
+  `).join("") : `<div class="empty compactEmpty">None yet.</div>`;
 }
 
 function renderJourneysPage(){
@@ -1335,13 +1622,18 @@ function renderPublic(){
 }
 
 function renderProfile(){
-  $("playerName").value = profile.display_name || "";
-  $("avatar").value = profile.avatar || "";
-  $("target").value = profile.target || "";
-  $("bio").value = profile.bio || "";
+  setFieldValue("playerName", profile.display_name || "");
+  setFieldValue("avatar", profile.avatar || "");
+  setFieldValue("target", profile.target || "");
+  setFieldValue("bio", profile.bio || "");
   $("avatarPreview").textContent = profile.avatar || initials(profile.display_name);
   $("profileNameView").textContent = profile.display_name || "Player";
   $("profileTargetView").textContent = profile.target || "Local player";
+}
+
+function setFieldValue(id, value){
+  const field = $(id);
+  if(field && document.activeElement !== field) field.value = value;
 }
 
 function setActiveJourney(journeyId){
@@ -1391,6 +1683,7 @@ function selectGoal(goalId){
   const context = findGoalContext(goalId, activeJourney());
   if(!context) return;
   setCursor(context);
+  $("completeGoal").disabled = false;
   message(`${context.goal.title} selected.`);
   playSound("tap");
   render();
@@ -1481,6 +1774,122 @@ function answerQuiz(goalId, answer){
     render();
     pushState();
   }
+}
+
+function applyBlockPreset(presetId){
+  const preset = blockPresets.find(item => item.id === presetId);
+  const plan = myBlockPlan();
+  if(!preset || isShieldLocked(plan)) return;
+  plan.apps = uniqueList([...plan.apps, ...preset.apps]);
+  plan.websites = uniqueList([...plan.websites, ...preset.websites]);
+  plan.shieldScore = blockScore(plan);
+  me().coins += Math.max(2, Math.round(preset.reward / 10));
+  message(`${preset.title} shield added.`);
+  playSound("complete");
+  render();
+  pushState();
+}
+
+function addBlockItem(type, value){
+  const plan = myBlockPlan();
+  const clean = String(value || "").trim();
+  if(!clean){
+    message("Add a name first.");
+    return;
+  }
+  if(isShieldLocked(plan)){
+    message("Strict shield is active.");
+    return;
+  }
+  const key = blockListKey(type);
+  plan[key] = uniqueList([...(plan[key] || []), clean]);
+  plan.shieldScore = blockScore(plan);
+  message(`${clean} added.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function removeBlockItem(type, value){
+  const plan = myBlockPlan();
+  if(isShieldLocked(plan)){
+    message("Strict shield is active.");
+    return;
+  }
+  const key = blockListKey(type);
+  plan[key] = (plan[key] || []).filter(item => item !== value);
+  plan.shieldScore = blockScore(plan);
+  message(`${value} removed.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function blockListKey(type){
+  if(type === "site") return "websites";
+  if(type === "allow") return "allowlist";
+  return "apps";
+}
+
+function toggleBlockRule(ruleId){
+  const plan = myBlockPlan();
+  if(isShieldLocked(plan)){
+    message("Strict shield is active.");
+    return;
+  }
+  const rule = plan.rules.find(item => item.id === ruleId);
+  if(!rule) return;
+  rule.enabled = !rule.enabled;
+  plan.shieldScore = blockScore(plan);
+  message(`${rule.title} ${rule.enabled ? "enabled" : "disabled"}.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function setStrictMode(enabled){
+  const plan = myBlockPlan();
+  if(isShieldLocked(plan)){
+    renderBlocks();
+    message("Strict shield is active.");
+    return;
+  }
+  plan.strict = Boolean(enabled);
+  plan.shieldScore = blockScore(plan);
+  message(plan.strict ? "Strict mode armed." : "Strict mode relaxed.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function activateShield(){
+  const plan = myBlockPlan();
+  if(plan.active) return;
+  plan.active = true;
+  plan.activatedAt = Date.now();
+  plan.shieldScore = blockScore(plan);
+  plan.savedSessions += 1;
+  const player = me();
+  player.xp += Math.max(10, Math.round(plan.shieldScore / 2));
+  player.coins += Math.max(2, Math.round(plan.shieldScore / 20));
+  addActivity("activated a distraction shield");
+  message("Distraction shield activated.");
+  playSound("level");
+  confetti(28);
+  render();
+  pushState();
+}
+
+function endShield(){
+  const plan = myBlockPlan();
+  if(!plan.active) return;
+  plan.active = false;
+  plan.activatedAt = null;
+  plan.shieldScore = blockScore(plan);
+  message("Shield ended.");
+  playSound("pause");
+  render();
+  pushState();
 }
 
 function resetMine(confirmFirst = true){
@@ -1911,6 +2320,21 @@ function bind(){
 
   $("completeGoal").onclick = completeSelectedGoal;
   $("resetProgress").onclick = () => resetMine(true);
+  $("activateShield").onclick = activateShield;
+  $("endShield").onclick = endShield;
+  $("strictMode").onchange = event => setStrictMode(event.target.checked);
+  $("addBlockApp").onclick = () => {
+    addBlockItem("app", $("blockAppInput").value);
+    $("blockAppInput").value = "";
+  };
+  $("addBlockSite").onclick = () => {
+    addBlockItem("site", $("blockSiteInput").value);
+    $("blockSiteInput").value = "";
+  };
+  $("addAllowTool").onclick = () => {
+    addBlockItem("allow", $("allowToolInput").value);
+    $("allowToolInput").value = "";
+  };
   $("joinPublic").onclick = joinPublicPath;
   $("createJourney").onclick = createCustomJourney;
   $("previewCustom").onclick = previewCustom;
