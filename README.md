@@ -1,6 +1,6 @@
 # NeuroQuest Journey
 
-A public gamified journey-map app for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through subjects, units, micro goals, quiz gates, map nodes, and the final goal.
+A public gamified journey OS for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through separate pages for dashboard, dot map, subjects, builder, shield, quizzes, public room, and profile.
 
 ## What It Does
 
@@ -8,9 +8,10 @@ A public gamified journey-map app for Android APK sideload use and PC web use. E
 - Android-friendly PWA shell and Capacitor config for APK wrapping
 - PC web deployment through Vercel
 - Multiple public journeys in one shared world
+- Separate app pages instead of a single tag-style surface
 - 10th Portion Quest preset with Biology, Physics, Prose, Grammar, History, and Maths
 - Each journey is split into subjects, units, and micro goals such as 2m questions, 5m answer frames, recall rounds, diagrams, practice, and quiz gates
-- Distraction Shield page with app blocks, website blocks, study allowlist, strict mode, shield score, and quick block presets
+- Distraction Shield page with app rows, website rows, study allowlist, strict mode, shield score, and quick presets
 - Custom syllabus builder with a simple outline format:
 
 ```text
@@ -21,7 +22,7 @@ Unit: Life Processes
 ? Quiz | What carries oxygen in blood? | Red blood cells | Platelets | Starch | 0
 ```
 
-- Wonky quest-map visualization with subject routes, unit flags, boss nodes, quiz gates, and checkable micro goals
+- Dot-based quest map with subject routes, unit rows, quiz gates, boss dots, and checkable micro goals
 - Player-specific progress on shared public journeys
 - Quiz gates with answer checking and sound effects
 - Public player list and activity feed

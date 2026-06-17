@@ -8,8 +8,18 @@ const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const PUBLIC_PATH_CODE = "PUBLIC-JOURNEY-PATH";
 const colors = ["#2563eb", "#0f766e", "#7c3aed", "#d97706", "#db2777", "#16a34a", "#0891b2", "#dc2626"];
-const pages = ["overview", "blocks", "journeys", "quiz", "public", "profile"];
-const pageAliases = { path: "overview", create: "journeys" };
+const pages = ["dashboard", "map", "subjects", "build", "shield", "quiz", "public", "profile"];
+const pageAliases = { overview: "dashboard", journey: "map", journeys: "build", blocks: "shield", path: "map", create: "build" };
+const pageTitles = {
+  dashboard: "Dashboard",
+  map: "Journey Map",
+  subjects: "Subjects",
+  build: "Build",
+  shield: "Shield",
+  quiz: "Quiz",
+  public: "Public",
+  profile: "Profile"
+};
 const storageKeys = {
   client: "nqJourneyClientId",
   state: "nqJourneyState",
@@ -20,40 +30,45 @@ const storageKeys = {
 const outlineSample = `Subject: Biology
 Unit: Life Processes
 - 2m question: nutrition keywords
-- 3m recall: respiration steps
-- 5m answer frame: digestion
-? Quiz | What carries oxygen in blood? | Red blood cells | Platelets | Starch | 0
-Unit: Heredity
-- 2m question: dominant trait
-- 5m diagram: Mendel cross
+- Diagram pass: digestive system labels
+- 5m answer frame: transport in humans
+? Bio quiz | What carries oxygen in human blood? | Red blood cells | Platelets | Starch | 0
+
+Subject: Physics
+Unit: Light
+- 2m question: laws of reflection
+- Ray diagram: concave mirror
+- 5m numerical: magnification
+? Physics quiz | A convex lens generally: | Converges light | Always absorbs light | Splits magnets | 0
 
 Subject: Grammar
 Unit: Tenses
 - 2m drill: present perfect
+- Rule card: signal words
 - 5m worksheet: mixed tense edits
-? Quiz | Which tense uses has or have? | Present perfect | Simple past | Future simple | 0`;
+? Grammar quiz | Which tense uses has or have plus past participle? | Present perfect | Simple past | Future simple | 0`;
 
-const blockPresets = [
+const shieldPresets = [
   {
-    id: "social-scroll",
-    title: "Social Scroll",
-    apps: ["Instagram", "Snapchat", "TikTok", "Facebook"],
+    id: "scroll-lock",
+    title: "Scroll Lock",
+    apps: ["Instagram", "TikTok", "Snapchat", "Facebook"],
     websites: ["instagram.com/reels", "youtube.com/shorts", "tiktok.com"],
-    reward: 35
+    allow: ["Notes", "Calendar", "Calculator"]
   },
   {
-    id: "study-mode",
-    title: "Study Mode",
-    apps: ["YouTube Shorts", "Games", "Shopping", "Messages"],
+    id: "study-safe",
+    title: "Study Safe",
+    apps: ["Games", "Shopping", "Streaming", "Shorts"],
     websites: ["reddit.com", "x.com", "netflix.com"],
-    reward: 28
+    allow: ["Dictionary", "Drive", "Classroom"]
   },
   {
-    id: "night-lock",
-    title: "Night Lock",
-    apps: ["Instagram", "YouTube", "Discord", "Games"],
-    websites: ["youtube.com", "twitch.tv", "primevideo.com"],
-    reward: 32
+    id: "night-reset",
+    title: "Night Reset",
+    apps: ["YouTube", "Discord", "Games", "Instagram"],
+    websites: ["twitch.tv", "youtube.com", "primevideo.com"],
+    allow: ["Alarm", "Music", "Notes"]
   }
 ];
 
@@ -62,146 +77,81 @@ const journeyTemplates = [
     id: "journey-10th-portion",
     templateId: "10th-portion",
     title: "10th Portion Quest",
-    finalGoal: "Complete the full portion across subjects, units, 2m and 5m questions, recall rounds, and quiz gates.",
+    goal: "Complete all portion work across subjects, units, 2m answers, 5m answers, recall rounds, and quizzes.",
     theme: "Class 10",
-    days: 45,
     subjects: [
-      subject("Biology", "Finish diagrams, processes, keywords, and memory checks.", [
-        unit("Life Processes", "Nutrition, respiration, transport, excretion", [
-          task("2m question: nutrition keywords", "2m", 2, "Answer one tiny definition without opening notes.", 8),
-          task("Diagram pass: digestive system labels", "diagram", 12, "Draw once, label once, hide labels once.", 18),
-          task("3m recall: respiration steps", "recall", 6, "Speak the order before writing the full answer.", 12),
-          task("5m answer frame: transport in humans", "5m", 15, "Write the skeleton first, then fill details.", 22),
-          quizGoal("Bio quiz: oxygen carrier", "What carries oxygen in human blood?", ["Red blood cells", "Platelets", "Starch"], 0)
+      subjectSeed("Biology", "Processes, diagrams, keywords, and recall.", [
+        unitSeed("Life Processes", "Nutrition, respiration, transport, excretion", [
+          goalSeed("2m question: nutrition keywords", "2m", 8, "Answer one tiny definition without notes."),
+          goalSeed("Diagram pass: digestive system labels", "diagram", 18, "Draw once, label once, hide labels once."),
+          goalSeed("3m recall: respiration steps", "recall", 12, "Speak the sequence before writing."),
+          goalSeed("5m answer frame: transport in humans", "5m", 22, "Write skeleton, then fill details."),
+          quizSeed("Bio quiz: oxygen carrier", "What carries oxygen in human blood?", ["Red blood cells", "Platelets", "Starch"], 0)
         ]),
-        unit("Heredity", "Traits, variation, Mendel crosses", [
-          task("2m question: dominant trait", "2m", 2, "Make one crisp definition card.", 8),
-          task("Punnett square warmup", "practice", 10, "Solve one monohybrid cross slowly.", 16),
-          task("3m recall: inherited vs acquired", "recall", 6, "Say the difference in your own words.", 12),
-          task("5m answer frame: sex determination", "5m", 14, "Build the answer with labelled steps.", 22),
-          quizGoal("Bio quiz: Mendel", "In a monohybrid cross, what does F1 usually show?", ["Dominant trait", "Both parents equally", "No trait"], 0)
-        ]),
-        unit("Environment", "Food chains, ecosystem balance, waste", [
-          task("2m question: trophic level", "2m", 2, "Write one example chain.", 8),
-          task("Map: producer to decomposer", "map", 8, "Make a tiny food web.", 14),
-          task("3m recall: ozone protection", "recall", 6, "Explain the danger in two lines.", 12),
-          task("5m answer frame: waste management", "5m", 14, "Point, reason, example.", 22),
-          quizGoal("Bio quiz: energy flow", "Energy in a food chain mainly moves from:", ["Producers upward", "Carnivores downward", "Decomposers to sunlight"], 0)
+        unitSeed("Heredity", "Traits, variation, and crosses", [
+          goalSeed("2m question: dominant trait", "2m", 8, "Make one crisp definition card."),
+          goalSeed("Punnett square warmup", "practice", 16, "Solve one monohybrid cross slowly."),
+          goalSeed("3m recall: inherited vs acquired", "recall", 12, "Say the difference in your own words."),
+          goalSeed("5m answer frame: sex determination", "5m", 22, "Build the answer with labelled steps."),
+          quizSeed("Bio quiz: Mendel", "In a monohybrid cross, what does F1 usually show?", ["Dominant trait", "Both parents equally", "No trait"], 0)
         ])
       ]),
-      subject("Physics", "Clear formulas, diagrams, numericals, and quick tests.", [
-        unit("Light", "Reflection, refraction, mirrors, lenses", [
-          task("2m question: laws of reflection", "2m", 2, "Write both laws from memory.", 8),
-          task("Ray diagram: concave mirror", "diagram", 12, "Draw one case and label image position.", 18),
-          task("Formula card: lens equation", "formula", 8, "Write formula, symbols, units.", 14),
-          task("5m numerical: magnification", "5m", 14, "Solve with steps and final unit.", 22),
-          quizGoal("Physics quiz: lens", "A convex lens generally:", ["Converges light", "Always absorbs light", "Splits magnets"], 0)
+      subjectSeed("Physics", "Formulas, diagrams, numericals, and quick tests.", [
+        unitSeed("Light", "Reflection, refraction, mirrors, lenses", [
+          goalSeed("2m question: laws of reflection", "2m", 8, "Write both laws from memory."),
+          goalSeed("Ray diagram: concave mirror", "diagram", 18, "Draw one case and label image position."),
+          goalSeed("Formula card: lens equation", "formula", 14, "Write formula, symbols, and units."),
+          goalSeed("5m numerical: magnification", "5m", 22, "Solve with steps and final unit."),
+          quizSeed("Physics quiz: lens", "A convex lens generally:", ["Converges light", "Always absorbs light", "Splits magnets"], 0)
         ]),
-        unit("Electricity", "Ohm law, resistance, power, circuits", [
-          task("2m question: Ohm law", "2m", 2, "Write V, I, R relation with units.", 8),
-          task("Circuit sketch: series vs parallel", "diagram", 10, "Draw both and mark current paths.", 18),
-          task("3m recall: factors of resistance", "recall", 6, "List and explain one factor.", 12),
-          task("5m numerical: electric power", "5m", 15, "Use P = VI and show substitution.", 22),
-          quizGoal("Physics quiz: unit", "The SI unit of resistance is:", ["Ohm", "Watt", "Coulomb"], 0)
-        ]),
-        unit("Magnetic Effects", "Field lines, motor, generator, safety", [
-          task("2m question: field line rule", "2m", 2, "State one property of magnetic field lines.", 8),
-          task("Diagram: solenoid field", "diagram", 12, "Mark direction and poles.", 18),
-          task("3m recall: Fleming rule", "recall", 6, "Use fingers and say each direction.", 12),
-          task("5m answer frame: electric motor", "5m", 15, "Function, principle, parts, working.", 22),
-          quizGoal("Physics quiz: field", "Magnetic field lines outside a magnet go from:", ["North to south", "South to north", "Center to edge"], 0)
+        unitSeed("Electricity", "Ohm law, resistance, power, circuits", [
+          goalSeed("2m question: Ohm law", "2m", 8, "Write V, I, R relation with units."),
+          goalSeed("Circuit sketch: series vs parallel", "diagram", 18, "Draw both and mark current paths."),
+          goalSeed("3m recall: factors of resistance", "recall", 12, "List and explain one factor."),
+          goalSeed("5m numerical: electric power", "5m", 22, "Use P = VI and show substitution."),
+          quizSeed("Physics quiz: unit", "The SI unit of resistance is:", ["Ohm", "Watt", "Coulomb"], 0)
         ])
       ]),
-      subject("Prose", "Build chapter memory, themes, character points, and evidence.", [
-        unit("Chapter Summaries", "Plot, speaker, turning points", [
-          task("2m skim: chapter headings", "2m", 2, "Read only headings and first lines.", 8),
-          task("Story spine: 5 beats", "map", 9, "Beginning, problem, turn, result, message.", 16),
-          task("3m recall: main conflict", "recall", 6, "Say it without the book.", 12),
-          task("5m answer frame: theme", "5m", 14, "Claim, scene, quote memory, explanation.", 22),
-          quizGoal("Prose quiz: theme", "A theme answer should mainly include:", ["Message plus evidence", "Only plot names", "Only grammar rules"], 0)
-        ]),
-        unit("Characters", "Traits, changes, motives, evidence", [
-          task("2m question: one trait", "2m", 2, "Pick one character and one trait.", 8),
-          task("Evidence hunt: two moments", "evidence", 10, "Mark scenes that prove the trait.", 16),
-          task("3m recall: motive chain", "recall", 6, "Why did the character act that way?", 12),
-          task("5m answer frame: character sketch", "5m", 14, "Trait, proof, change, closing line.", 22),
-          quizGoal("Prose quiz: evidence", "Good textual evidence is:", ["A relevant moment from the text", "A random opinion", "A spelling rule"], 0)
-        ]),
-        unit("Textual Answers", "Short answers, long answers, quote memory", [
-          task("2m answer: direct question", "2m", 2, "Write one two-line answer.", 8),
-          task("5m answer frame: value point", "5m", 15, "Make point, explain, connect to text.", 22),
-          task("Quote memory: three anchors", "recall", 8, "Remember keywords, not full paragraphs.", 14),
-          task("Self-check: underline command words", "review", 6, "Circle why, how, describe, compare.", 12),
-          quizGoal("Prose quiz: command word", "If a question says compare, you should:", ["Show similarities and differences", "Write only one side", "Skip evidence"], 0)
+      subjectSeed("Prose", "Chapter memory, themes, character points, and evidence.", [
+        unitSeed("Chapter Summaries", "Plot, speaker, turning points", [
+          goalSeed("2m skim: chapter headings", "2m", 8, "Read headings and first lines."),
+          goalSeed("Story spine: five beats", "map", 16, "Beginning, problem, turn, result, message."),
+          goalSeed("3m recall: main conflict", "recall", 12, "Say it without the book."),
+          goalSeed("5m answer frame: theme", "5m", 22, "Claim, scene, quote memory, explanation."),
+          quizSeed("Prose quiz: theme", "A theme answer should mainly include:", ["Message plus evidence", "Only plot names", "Only grammar rules"], 0)
         ])
       ]),
-      subject("Grammar", "Turn rules into fast drills with feedback.", [
-        unit("Tenses", "Present, past, future, perfect forms", [
-          task("2m drill: present perfect", "2m", 2, "Make three has/have sentences.", 8),
-          task("Rule card: signal words", "rule", 8, "Already, since, for, yesterday, tomorrow.", 14),
-          task("3m recall: tense table", "recall", 6, "Say one example per tense.", 12),
-          task("5m worksheet: mixed tense edits", "5m", 15, "Correct five sentences.", 22),
-          quizGoal("Grammar quiz: perfect", "Which tense uses has or have plus past participle?", ["Present perfect", "Simple past", "Future simple"], 0)
+      subjectSeed("Grammar", "Rules converted into fast drills.", [
+        unitSeed("Tenses", "Present, past, future, perfect forms", [
+          goalSeed("2m drill: present perfect", "2m", 8, "Make three has/have sentences."),
+          goalSeed("Rule card: signal words", "rule", 14, "Already, since, for, yesterday, tomorrow."),
+          goalSeed("3m recall: tense table", "recall", 12, "Say one example per tense."),
+          goalSeed("5m worksheet: mixed tense edits", "5m", 22, "Correct five sentences."),
+          quizSeed("Grammar quiz: perfect", "Which tense uses has or have plus past participle?", ["Present perfect", "Simple past", "Future simple"], 0)
         ]),
-        unit("Voice and Speech", "Active/passive, direct/indirect", [
-          task("2m question: object spotting", "2m", 2, "Find subject, verb, object in one line.", 8),
-          task("Rule card: passive pattern", "rule", 8, "Object + be + V3 + by + subject.", 14),
-          task("3m recall: reporting verbs", "recall", 6, "Said, told, asked, ordered.", 12),
-          task("5m worksheet: transform five", "5m", 15, "Do two passive, three speech.", 22),
-          quizGoal("Grammar quiz: passive", "In passive voice, the focus moves to the:", ["Receiver of action", "Dictionary meaning", "Punctuation only"], 0)
-        ]),
-        unit("Editing", "Error spotting, punctuation, sentence repair", [
-          task("2m drill: article errors", "2m", 2, "Fix a/an/the in three lines.", 8),
-          task("Rule card: subject-verb agreement", "rule", 8, "Singular with singular verb.", 14),
-          task("3m recall: comma jobs", "recall", 6, "List two comma uses.", 12),
-          task("5m worksheet: edit passage", "5m", 15, "Find five errors and label rule.", 22),
-          quizGoal("Grammar quiz: agreement", "The sentence 'He go home' needs:", ["A singular verb form", "A new adjective", "No change"], 0)
+        unitSeed("Voice and Speech", "Active, passive, direct, indirect", [
+          goalSeed("2m question: object spotting", "2m", 8, "Find subject, verb, and object."),
+          goalSeed("Rule card: passive pattern", "rule", 14, "Object + be + V3 + by + subject."),
+          goalSeed("5m worksheet: transform five", "5m", 22, "Do two passive and three speech transforms."),
+          quizSeed("Grammar quiz: passive", "In passive voice, focus moves to the:", ["Receiver of action", "Dictionary meaning", "Punctuation only"], 0)
         ])
       ]),
-      subject("History", "Turn chapters into timelines, causes, effects, and maps.", [
-        unit("Nationalism", "Events, leaders, causes, symbols", [
-          task("2m question: one event", "2m", 2, "Write date, place, result.", 8),
-          task("Timeline: five markers", "map", 10, "Order events left to right.", 16),
-          task("3m recall: cause and effect", "recall", 6, "Say one cause and one result.", 12),
-          task("5m answer frame: movement analysis", "5m", 15, "Cause, action, people, impact.", 22),
-          quizGoal("History quiz: timeline", "A timeline mainly helps you see:", ["Order of events", "Only spelling", "Only diagrams"], 0)
-        ]),
-        unit("Industrialization", "Factories, workers, markets, change", [
-          task("2m question: proto-industrialisation", "2m", 2, "Make one definition card.", 8),
-          task("Map: old work to factory", "map", 10, "Draw a before/after flow.", 16),
-          task("3m recall: worker condition", "recall", 6, "Say two problems workers faced.", 12),
-          task("5m answer frame: impact", "5m", 15, "Economic, social, market points.", 22),
-          quizGoal("History quiz: factories", "Industrialization is closely linked with:", ["Machine production", "Only farming rituals", "No markets"], 0)
-        ]),
-        unit("Print Culture", "Books, reform, debate, nationalism", [
-          task("2m question: print revolution", "2m", 2, "Write one effect of printing.", 8),
-          task("Timeline: print spread", "map", 9, "Mark invention, spread, impact.", 16),
-          task("3m recall: reform debate", "recall", 6, "Say how print spread ideas.", 12),
-          task("5m answer frame: nationalism link", "5m", 15, "Idea spread, public debate, identity.", 22),
-          quizGoal("History quiz: print", "Print culture made it easier to:", ["Share ideas widely", "Stop all debate", "Erase books"], 0)
+      subjectSeed("History", "Timelines, causes, effects, and maps.", [
+        unitSeed("Nationalism", "Events, leaders, causes, symbols", [
+          goalSeed("2m question: one event", "2m", 8, "Write date, place, result."),
+          goalSeed("Timeline: five markers", "map", 16, "Order events left to right."),
+          goalSeed("3m recall: cause and effect", "recall", 12, "Say one cause and one result."),
+          goalSeed("5m answer frame: movement analysis", "5m", 22, "Cause, action, people, impact."),
+          quizSeed("History quiz: timeline", "A timeline mainly helps you see:", ["Order of events", "Only spelling", "Only diagrams"], 0)
         ])
       ]),
-      subject("Maths", "Keep formulas visible and make practice less scary.", [
-        unit("Algebra", "Polynomials, pairs of equations, AP", [
-          task("2m question: formula recall", "2m", 2, "Write one identity from memory.", 8),
-          task("Warmup: two easy sums", "practice", 8, "Choose very low friction problems.", 14),
-          task("3m recall: steps before solving", "recall", 6, "State method before numbers.", 12),
-          task("5m problem: linear equations", "5m", 15, "Solve and check substitution.", 22),
-          quizGoal("Math quiz: identity", "The identity (a+b)^2 equals:", ["a^2 + 2ab + b^2", "a^2 - 2ab + b^2", "a + b^2"], 0)
-        ]),
-        unit("Geometry", "Triangles, circles, constructions", [
-          task("2m question: theorem name", "2m", 2, "Match theorem with one diagram.", 8),
-          task("Diagram: similar triangles", "diagram", 10, "Mark equal angles and ratios.", 16),
-          task("3m recall: proof steps", "recall", 6, "Speak proof order once.", 12),
-          task("5m problem: circle tangent", "5m", 15, "Write given, to prove, construction.", 22),
-          quizGoal("Math quiz: tangent", "A radius to a tangent at point of contact is:", ["Perpendicular", "Parallel", "Unrelated"], 0)
-        ]),
-        unit("Statistics", "Mean, median, mode, probability", [
-          task("2m question: mean formula", "2m", 2, "Write formula and units.", 8),
-          task("Table cleanup: grouped data", "practice", 10, "Mark class, frequency, midpoint.", 16),
-          task("3m recall: median steps", "recall", 6, "Say cumulative frequency steps.", 12),
-          task("5m problem: probability", "5m", 14, "Favorable over total, simplify.", 22),
-          quizGoal("Math quiz: probability", "Probability is usually written as:", ["Favorable outcomes / total outcomes", "Total outcomes / marks", "Only a diagram"], 0)
+      subjectSeed("Maths", "Formula visibility and low-friction practice.", [
+        unitSeed("Algebra", "Polynomials, equations, AP", [
+          goalSeed("2m question: formula recall", "2m", 8, "Write one identity from memory."),
+          goalSeed("Warmup: two easy sums", "practice", 14, "Choose very low friction problems."),
+          goalSeed("3m recall: steps before solving", "recall", 12, "State method before numbers."),
+          goalSeed("5m problem: linear equations", "5m", 22, "Solve and check substitution."),
+          quizSeed("Math quiz: identity", "(a+b)^2 equals:", ["a^2 + 2ab + b^2", "a^2 - 2ab + b^2", "a + b^2"], 0)
         ])
       ])
     ]
@@ -209,67 +159,24 @@ const journeyTemplates = [
   {
     id: "journey-exam-rescue",
     templateId: "exam-rescue",
-    title: "Exam Rescue Board",
-    finalGoal: "Finish a compact revision loop with weak zones, practice, mistakes, and final recall.",
+    title: "Exam Rescue",
+    goal: "Convert exam panic into a visible path of weak zones, practice, mistakes, and recall.",
     theme: "Exam",
-    days: 10,
     subjects: [
-      subject("Sort", "Get the portion out of your head and onto a board.", [
-        unit("Syllabus Sweep", "Know what exists", [
-          task("2m dump: chapters you remember", "2m", 2, "Write rough chapter names.", 8),
-          task("Mark red, yellow, green topics", "map", 12, "Red means unclear, yellow means shaky.", 18),
-          task("Pick three danger zones", "choice", 5, "Choose by marks and fear level.", 12),
-          quizGoal("Sort quiz", "The first useful move is to:", ["Name the next tiny action", "Wait for full motivation", "Rewrite everything"], 0)
+      subjectSeed("Sort", "Know what exists.", [
+        unitSeed("Syllabus Sweep", "Mark what is red, yellow, and green", [
+          goalSeed("2m dump: chapters remembered", "2m", 8, "Write rough chapter names."),
+          goalSeed("Mark red yellow green topics", "map", 16, "Red unclear, yellow shaky, green safe."),
+          goalSeed("Pick three danger zones", "choice", 12, "Choose by marks and fear level."),
+          quizSeed("Sort quiz", "The first useful move is to:", ["Name the next tiny action", "Wait for motivation", "Rewrite everything"], 0)
         ])
       ]),
-      subject("Practice", "Convert panic into visible attempts.", [
-        unit("Question Run", "Easy, medium, timed", [
-          task("Solve five easy questions", "practice", 12, "Use momentum questions first.", 16),
-          task("Solve three medium questions", "practice", 18, "Stop after three, check errors.", 22),
-          task("One mini practice set", "practice", 20, "Short enough to finish.", 24),
-          quizGoal("Practice quiz", "After practice, the best check is:", ["Find one repeat mistake", "Count only effort", "Start a new chapter"], 0)
-        ])
-      ]),
-      subject("Recall", "Remember without rewriting the whole book.", [
-        unit("Final Loop", "Cards, mistakes, final gate", [
-          task("Make five mistake cards", "review", 12, "Question on front, fix on back.", 18),
-          task("3m blank-page recall", "recall", 6, "Write what you know before checking.", 12),
-          task("Final scan: high-mark answers", "5m", 15, "Read answer frames only.", 22),
-          quizGoal("Recall quiz", "Blank-page recall means:", ["Try memory before notes", "Copy full notes", "Avoid testing"], 0)
-        ])
-      ])
-    ]
-  },
-  {
-    id: "journey-daily-stabilizer",
-    templateId: "daily-stabilizer",
-    title: "Daily Stabilizer",
-    finalGoal: "Turn a messy day into a visible chain of small wins.",
-    theme: "Daily",
-    days: 1,
-    subjects: [
-      subject("Reset", "Clear enough space to start.", [
-        unit("Body and Desk", "Low friction first", [
-          task("2m water and surface reset", "2m", 2, "Drink water and clear one small area.", 8),
-          task("Park distracting thoughts", "capture", 5, "Write them down for later.", 10),
-          task("Pick top three tasks", "choice", 6, "Only three. Not the whole universe.", 12),
-          quizGoal("Reset quiz", "A parked distraction is:", ["Saved for later", "A task for now", "A failure"], 0)
-        ])
-      ]),
-      subject("Focus", "Make the first block easier to enter.", [
-        unit("One Block", "Start, continue, close", [
-          task("2m starter on main task", "2m", 2, "Open the exact file/page/material.", 8),
-          task("Main action block", "task", 15, "Do the next visible piece.", 18),
-          task("Send one pending message", "life", 8, "Short and done beats perfect.", 12),
-          quizGoal("Focus quiz", "A good ADHD-friendly start is:", ["Tiny and visible", "Perfectly planned", "Delayed"], 0)
-        ])
-      ]),
-      subject("Close", "Leave tomorrow less tangled.", [
-        unit("Shutdown", "Review and reset", [
-          task("3m done list", "recall", 3, "Write what actually moved.", 10),
-          task("Choose tomorrow's first tile", "choice", 5, "Make it obvious.", 12),
-          task("Reset one tool/material", "life", 5, "Put one thing where it belongs.", 10),
-          quizGoal("Close quiz", "A shutdown list should mainly show:", ["What moved and what starts next", "Every unfinished thing", "Only guilt"], 0)
+      subjectSeed("Practice", "Convert panic into attempts.", [
+        unitSeed("Question Run", "Easy, medium, timed", [
+          goalSeed("Solve five easy questions", "practice", 16, "Use momentum questions first."),
+          goalSeed("Solve three medium questions", "practice", 22, "Stop after three and check errors."),
+          goalSeed("One mini practice set", "practice", 24, "Short enough to finish."),
+          quizSeed("Practice quiz", "After practice, the best check is:", ["Find one repeat mistake", "Count only effort", "Start a new chapter"], 0)
         ])
       ])
     ]
@@ -278,333 +185,285 @@ const journeyTemplates = [
 
 const app = document.querySelector("#app");
 app.innerHTML = `
-<div class="shell">
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">NQ</div>
+<div class="appFrame">
+  <aside class="sidebar">
+    <div class="brandBlock">
+      <div class="brandMark">NQ</div>
       <div>
-        <h1>NeuroQuest Journey</h1>
-        <div class="sub">APK and PC public study world</div>
+        <h1>NeuroQuest</h1>
+        <p>Journey OS</p>
       </div>
     </div>
-    <div class="statusPills">
-      <span class="pill" id="connectionPill">LOCAL</span>
-      <span class="pill" id="journeyPill">CLASS 10</span>
-      <span class="pill" id="blockPill">SHIELD READY</span>
-      <span class="pill" id="apkPill">APK READY</span>
-      <button class="pill soundButton" id="soundToggle" type="button">SOUND OFF</button>
+
+    <nav class="sideNav" aria-label="Main pages">
+      <button type="button" data-page-link="dashboard"><span></span>Dashboard</button>
+      <button type="button" data-page-link="map"><span></span>Journey Map</button>
+      <button type="button" data-page-link="subjects"><span></span>Subjects</button>
+      <button type="button" data-page-link="build"><span></span>Build</button>
+      <button type="button" data-page-link="shield"><span></span>Shield</button>
+      <button type="button" data-page-link="quiz"><span></span>Quiz</button>
+      <button type="button" data-page-link="public"><span></span>Public</button>
+      <button type="button" data-page-link="profile"><span></span>Profile</button>
+    </nav>
+
+    <div class="sidebarFooter">
+      <div class="miniMetric"><span>XP</span><b id="sideXp">0</b></div>
+      <div class="miniMetric"><span>Shield</span><b id="sideShield">0%</b></div>
     </div>
-  </header>
+  </aside>
 
-  <nav class="tabs" aria-label="Journey pages">
-    <button type="button" data-page-link="overview">Overview</button>
-    <button type="button" data-page-link="blocks">Blocks</button>
-    <button type="button" data-page-link="journeys">Journeys</button>
-    <button type="button" data-page-link="quiz">Quiz</button>
-    <button type="button" data-page-link="public">Public</button>
-    <button type="button" data-page-link="profile">Profile</button>
-  </nav>
+  <section class="workspace">
+    <header class="topbar">
+      <div>
+        <label id="pageKicker">Dashboard</label>
+        <h2 id="pageTitle">Dashboard</h2>
+      </div>
+      <div class="topStatus">
+        <div><span></span><b id="connectionView">Local</b></div>
+        <div><span></span><b id="activeJourneyView">Journey</b></div>
+        <button type="button" id="soundToggle">Sound Off</button>
+      </div>
+    </header>
 
-  <div class="notice" id="message">Ready.</div>
+    <div class="notice" id="message">Ready.</div>
 
-  <main>
-    <section class="page" data-page="overview">
-      <section class="missionBand">
-        <div class="missionCopy">
-          <label id="journeyTheme">Class 10</label>
-          <h2 id="journeyTitle">10th Portion Quest</h2>
-          <p id="journeyGoal" class="muted"></p>
-        </div>
-        <div class="progressRing" id="progressRing"><b id="progressText">0%</b></div>
-        <div class="statRack">
-          <div><span>Cleared</span><b id="clearedGoals">0</b></div>
-          <div><span>Total</span><b id="totalGoals">0</b></div>
-          <div><span>Subjects</span><b id="subjectCount">0</b></div>
-          <div><span>Quizzes</span><b id="quizCount">0</b></div>
+    <main>
+      <section class="page" data-page="dashboard">
+        <div class="dashboardGrid">
+          <section class="heroPanel">
+            <div>
+              <label id="journeyTheme">Class 10</label>
+              <h2 id="journeyTitle">10th Portion Quest</h2>
+              <p id="journeyGoal"></p>
+            </div>
+            <div class="progressOrb" id="progressOrb"><b id="progressText">0%</b><span>clear</span></div>
+          </section>
+
+          <section class="metricGrid">
+            <div><span>Cleared</span><b id="clearedGoals">0</b></div>
+            <div><span>Total Goals</span><b id="totalGoals">0</b></div>
+            <div><span>Subjects</span><b id="subjectCount">0</b></div>
+            <div><span>Rank</span><b id="rankView">Rookie</b></div>
+          </section>
+
+          <section class="panel currentPanel">
+            <div class="panelHead">
+              <div><label>Current Node</label><h2 id="currentGoalTitle">Pick a goal</h2></div>
+              <button type="button" id="completeGoal">Check Off</button>
+            </div>
+            <p id="currentGoalDetail"></p>
+            <div class="dotMeta" id="currentGoalMeta"></div>
+          </section>
+
+          <section class="panel shieldPanel">
+            <div class="panelHead">
+              <div><label>Distraction Shield</label><h2 id="shieldStatusTitle">Ready</h2></div>
+              <button type="button" data-page-link="shield">Open</button>
+            </div>
+            <div class="shieldMeter"><span id="shieldMeterFill"></span></div>
+            <div class="rowStats" id="shieldMiniStats"></div>
+          </section>
+
+          <section class="panel widePanel">
+            <div class="panelHead">
+              <div><label>Subject Progress</label><h2>Portion map</h2></div>
+              <button type="button" data-page-link="map">Open Map</button>
+            </div>
+            <div class="subjectProgressList" id="dashboardSubjects"></div>
+          </section>
         </div>
       </section>
 
-      <section class="journeyShelf" id="journeyShelf" aria-label="Journey selector"></section>
-
-      <section class="studyGrid mapGrid">
-        <aside class="subjectRail" id="subjectRail" aria-label="Subjects"></aside>
-
-        <section class="mapBoard">
-          <div class="boardHead">
-            <div>
-              <label>Quest Map</label>
-              <h2 id="selectedSubjectTitle">Subject</h2>
-              <p class="muted" id="selectedSubjectGoal"></p>
+      <section class="page" data-page="map">
+        <div class="mapPage">
+          <aside class="panel subjectList" id="mapSubjects"></aside>
+          <section class="panel mapPanel">
+            <div class="panelHead">
+              <div>
+                <label>Dot Route</label>
+                <h2 id="mapSubjectTitle">Subject</h2>
+                <p id="mapSubjectGoal"></p>
+              </div>
+              <b id="mapSubjectPercent">0%</b>
             </div>
-            <span class="percentBadge" id="selectedSubjectProgress">0%</span>
-          </div>
-          <div class="mapViewport">
-            <div class="questMap" id="questMap">
-              <svg id="questLines" viewBox="0 0 1100 620" preserveAspectRatio="none"></svg>
-              <div id="mapNodes"></div>
+            <div class="dotMapViewport">
+              <div class="dotMap" id="dotMap">
+                <svg id="dotLines" viewBox="0 0 1120 560" preserveAspectRatio="none"></svg>
+                <div id="dotNodes"></div>
+              </div>
             </div>
-          </div>
-          <div class="unitStack" id="unitStack"></div>
-        </section>
-
-        <aside class="commandDeck">
-          <div class="boardHead compact">
-            <div>
-              <label>Active Micro Goal</label>
-              <h2 id="activeGoalTitle">Pick a goal</h2>
+            <div class="unitDots" id="mapUnits"></div>
+          </section>
+          <aside class="panel detailPanel">
+            <label>Selected Goal</label>
+            <h2 id="selectedGoalTitle">Goal</h2>
+            <p id="selectedGoalDetail"></p>
+            <div class="detailRows" id="selectedGoalRows"></div>
+            <div class="actionRow">
+              <button type="button" id="mapCompleteGoal">Check Off</button>
+              <button type="button" id="mapResetProgress">Reset</button>
             </div>
-            <span class="typeBadge" id="activeGoalKind">TASK</span>
-          </div>
-          <p class="activeDetail" id="activeGoalDetail"></p>
-          <div class="activeMeta" id="activeGoalMeta"></div>
+          </aside>
+        </div>
+      </section>
 
-          <div class="consoleActions">
-            <button type="button" class="success" id="completeGoal">Check Off</button>
-            <button type="button" class="danger" id="resetProgress">Reset Mine</button>
-          </div>
+      <section class="page" data-page="subjects">
+        <div class="subjectsPage">
+          <section class="panel">
+            <div class="panelHead"><div><label>Subjects</label><h2>Portion structure</h2></div></div>
+            <div class="subjectTable" id="subjectTable"></div>
+          </section>
+          <section class="panel">
+            <div class="panelHead"><div><label>Units</label><h2 id="unitPanelTitle">Selected subject</h2></div></div>
+            <div class="unitList" id="unitList"></div>
+          </section>
+        </div>
+      </section>
 
-          <div class="scoreGrid">
-            <div><span>XP</span><b id="xpView">0</b></div>
-            <div><span>Coins</span><b id="coinView">0</b></div>
-            <div><span>Streak</span><b id="streakView">0</b></div>
-            <div><span>Rank</span><b id="rankView">Rookie</b></div>
-          </div>
+      <section class="page" data-page="build">
+        <div class="buildPage">
+          <section class="panel">
+            <div class="panelHead"><div><label>Presets</label><h2>Start point</h2></div></div>
+            <div class="presetRows" id="presetRows"></div>
+          </section>
+          <section class="panel buildPanel">
+            <div class="panelHead">
+              <div><label>Custom Journey</label><h2>Syllabus builder</h2></div>
+              <button type="button" id="loadOutline">Load 10th Shape</button>
+            </div>
+            <label>Journey Name</label>
+            <input id="customTitle" placeholder="10th Midterm Portion" />
+            <label>Final Goal</label>
+            <textarea id="customGoal" placeholder="Complete every subject, unit, and quiz gate."></textarea>
+            <label>Theme</label>
+            <select id="customTheme">
+              <option>Class 10</option>
+              <option>Exam</option>
+              <option>Daily</option>
+              <option>Project</option>
+              <option>Creative</option>
+            </select>
+            <label>Syllabus Outline</label>
+            <textarea id="customOutline" class="outlineInput">${escapeHTML(outlineSample)}</textarea>
+            <div class="actionRow">
+              <button type="button" id="createJourney">Publish Journey</button>
+              <button type="button" id="previewJourney">Preview Shape</button>
+            </div>
+            <div class="shapePreview" id="shapePreview"></div>
+          </section>
+        </div>
+      </section>
 
-          <div class="shieldMini">
+      <section class="page" data-page="shield">
+        <div class="shieldPage">
+          <section class="shieldHero">
             <div>
               <label>Distraction Shield</label>
-              <b id="shieldMiniStatus">Ready</b>
+              <h2>Shield control</h2>
+              <p id="shieldSubtitle"></p>
             </div>
-            <button type="button" class="secondary small" data-page-link="blocks">Open Blocks</button>
-          </div>
-        </aside>
-      </section>
-    </section>
-
-    <section class="page" data-page="blocks">
-      <section class="blockHero">
-        <div>
-          <label>Distraction Shield</label>
-          <h2>App blocks, strict rules, and study-safe spaces</h2>
-          <p class="muted" id="blockHeroText">Build a shield before you enter the quest map.</p>
-        </div>
-        <div class="shieldCore" id="shieldCore">
-          <span id="shieldCoreScore">0</span>
-          <small>Shield</small>
-        </div>
-        <div class="consoleActions">
-          <button type="button" class="primary" id="activateShield">Activate Shield</button>
-          <button type="button" class="secondary" id="endShield">End Shield</button>
-        </div>
-      </section>
-
-      <section class="blockLayout">
-        <div class="toolPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Quick Blocks</label>
-              <h2>Preset shields</h2>
+            <div class="shieldScore"><b id="shieldScore">0</b><span>score</span></div>
+            <div class="actionRow">
+              <button type="button" id="activateShield">Activate</button>
+              <button type="button" id="endShield">End</button>
             </div>
+          </section>
+
+          <div class="shieldGrid">
+            <section class="panel">
+              <div class="panelHead"><div><label>Presets</label><h2>Shield templates</h2></div></div>
+              <div class="shieldPresetRows" id="shieldPresetRows"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Apps</label><h2>Blocked apps</h2></div></div>
+              <div class="addLine"><input id="appInput" placeholder="App name" /><button type="button" id="addApp">Add</button></div>
+              <div class="cleanList" id="appList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Websites</label><h2>Blocked sites</h2></div></div>
+              <div class="addLine"><input id="siteInput" placeholder="website.com" /><button type="button" id="addSite">Add</button></div>
+              <div class="cleanList" id="siteList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panelHead"><div><label>Allowlist</label><h2>Study-safe tools</h2></div></div>
+              <div class="addLine"><input id="allowInput" placeholder="Notes, Dictionary" /><button type="button" id="addAllow">Add</button></div>
+              <div class="cleanList" id="allowList"></div>
+            </section>
+
+            <section class="panel widePanel">
+              <div class="panelHead">
+                <div><label>Protocol</label><h2>Shield rules</h2></div>
+                <label class="checkLine"><input type="checkbox" id="strictMode" /> Strict</label>
+              </div>
+              <div class="ruleList" id="ruleList"></div>
+            </section>
           </div>
-          <div class="blockPresetGrid" id="blockPresetGrid"></div>
-        </div>
-
-        <div class="toolPanel blockPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Blocked Apps</label>
-              <h2>Distraction list</h2>
-            </div>
-            <span class="percentBadge" id="blockedAppCount">0</span>
-          </div>
-          <div class="addRow">
-            <input id="blockAppInput" placeholder="App name" />
-            <button type="button" class="primary small" id="addBlockApp">Add</button>
-          </div>
-          <div class="chipWall" id="blockedApps"></div>
-        </div>
-
-        <div class="toolPanel blockPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Blocked Sites</label>
-              <h2>Web gates</h2>
-            </div>
-            <span class="percentBadge" id="blockedSiteCount">0</span>
-          </div>
-          <div class="addRow">
-            <input id="blockSiteInput" placeholder="website.com or /shorts" />
-            <button type="button" class="primary small" id="addBlockSite">Add</button>
-          </div>
-          <div class="chipWall" id="blockedSites"></div>
-        </div>
-
-        <div class="toolPanel blockPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Study Allowlist</label>
-              <h2>Safe tools</h2>
-            </div>
-            <span class="percentBadge" id="allowedToolCount">0</span>
-          </div>
-          <div class="addRow">
-            <input id="allowToolInput" placeholder="Notes, Calculator, Dictionary" />
-            <button type="button" class="primary small" id="addAllowTool">Add</button>
-          </div>
-          <div class="chipWall" id="allowedTools"></div>
-        </div>
-
-        <div class="toolPanel blockPanel wide">
-          <div class="boardHead compact">
-            <div>
-              <label>Rules</label>
-              <h2>Shield protocol</h2>
-            </div>
-            <label class="switchLine">
-              <input type="checkbox" id="strictMode" />
-              <span>Strict</span>
-            </label>
-          </div>
-          <div class="ruleGrid" id="blockRules"></div>
-        </div>
-
-        <div class="toolPanel blockPanel">
-          <label>Insights</label>
-          <div class="blockStats" id="blockStats"></div>
-        </div>
-      </section>
-    </section>
-
-    <section class="page" data-page="journeys">
-      <section class="builderGrid">
-        <div class="toolPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Presets</label>
-              <h2>Journey library</h2>
-            </div>
-          </div>
-          <div class="presetGrid" id="presetGrid"></div>
-        </div>
-
-        <div class="toolPanel builderPanel">
-          <div class="boardHead compact">
-            <div>
-              <label>Custom Journey</label>
-              <h2>Build a syllabus map</h2>
-            </div>
-            <button type="button" class="secondary small" id="loadTenOutline">Load 10th Shape</button>
-          </div>
-
-          <label>Journey Name</label>
-          <input id="customTitle" placeholder="Example: 10th Midterm Portion" />
-
-          <label>Final Goal</label>
-          <textarea id="customGoal" placeholder="Example: Finish all subjects, units, 2m questions, and final recall."></textarea>
-
-          <label>Theme</label>
-          <select id="customTheme">
-            <option>Class 10</option>
-            <option>Exam</option>
-            <option>Daily</option>
-            <option>Project</option>
-            <option>Fitness</option>
-            <option>Creative</option>
-          </select>
-
-          <label>Syllabus Outline</label>
-          <textarea id="customOutline" class="outlineInput">${escapeHTML(outlineSample)}</textarea>
-
-          <div class="consoleActions">
-            <button type="button" class="primary" id="createJourney">Publish Journey</button>
-            <button type="button" class="secondary" id="previewCustom">Preview Shape</button>
-          </div>
-          <div class="outlinePreview" id="outlinePreview"></div>
         </div>
       </section>
 
-      <section class="currentJourneys" id="currentJourneyList" aria-label="Current journeys"></section>
-    </section>
-
-    <section class="page" data-page="quiz">
-      <section class="quizLayout">
-        <div class="toolPanel quizPanel">
-          <div class="boardHead compact">
-            <div>
-              <label id="quizContext">Quiz Gate</label>
-              <h2 id="quizTitle">No quiz selected</h2>
-            </div>
-            <span class="typeBadge">QUIZ</span>
-          </div>
-          <p id="quizQuestionText" class="quizQuestion"></p>
-          <div id="answerList" class="answerList"></div>
-        </div>
-
-        <aside class="toolPanel">
-          <label>Quiz Queue</label>
-          <div id="quizQueue" class="taskList"></div>
-        </aside>
-      </section>
-    </section>
-
-    <section class="page" data-page="public">
-      <section class="publicLayout">
-        <div class="toolPanel publicHero">
-          <div class="boardHead compact">
-            <div>
-              <label>Public Room</label>
-              <h2>Shared journey world</h2>
-            </div>
-            <button type="button" class="primary" id="joinPublic">Enter Public Path</button>
-          </div>
-          <div class="roomCode">${PUBLIC_PATH_CODE}</div>
-          <div class="roomSummary" id="roomSummary"></div>
-        </div>
-
-        <div class="toolPanel">
-          <label>Players</label>
-          <div id="players" class="players"></div>
-        </div>
-
-        <div class="toolPanel">
-          <label>Activity</label>
-          <div id="activityFeed" class="activityFeed"></div>
+      <section class="page" data-page="quiz">
+        <div class="quizPage">
+          <section class="panel quizPanel">
+            <div class="panelHead"><div><label id="quizContext">Quiz</label><h2 id="quizTitle">Quiz Gate</h2></div></div>
+            <p id="quizQuestion"></p>
+            <div class="answerList" id="answerList"></div>
+          </section>
+          <section class="panel">
+            <div class="panelHead"><div><label>Queue</label><h2>Quiz dots</h2></div></div>
+            <div class="quizQueue" id="quizQueue"></div>
+          </section>
         </div>
       </section>
-    </section>
 
-    <section class="page" data-page="profile">
-      <section class="profileLayout">
-        <div class="toolPanel builderPanel">
-          <label>Profile</label>
-          <div class="avatarPreview">
-            <div id="avatarPreview">NQ</div>
-            <div>
-              <h2 id="profileNameView">Player</h2>
-              <p id="profileTargetView" class="muted">Local player</p>
+      <section class="page" data-page="public">
+        <div class="publicPage">
+          <section class="panel">
+            <div class="panelHead">
+              <div><label>Public Room</label><h2>${PUBLIC_PATH_CODE}</h2></div>
+              <button type="button" id="joinPublic">Enter</button>
             </div>
-          </div>
-          <div class="two">
+            <div class="roomStats" id="roomStats"></div>
+          </section>
+          <section class="panel">
+            <div class="panelHead"><div><label>Players</label><h2>Leaderboard</h2></div></div>
+            <div class="playerList" id="players"></div>
+          </section>
+          <section class="panel">
+            <div class="panelHead"><div><label>Activity</label><h2>Room log</h2></div></div>
+            <div class="activityList" id="activityFeed"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" data-page="profile">
+        <div class="profilePage">
+          <section class="panel profilePanel">
+            <div class="avatarBlock"><div id="avatarPreview">NQ</div><div><label>Profile</label><h2 id="profileNameView">Player</h2><p id="profileTargetView"></p></div></div>
+            <label>Name</label>
             <input id="playerName" placeholder="Name" />
-            <input id="avatar" placeholder="Avatar initials" maxlength="2" />
-          </div>
-          <input id="target" placeholder="Target / goal" />
-          <textarea id="bio" placeholder="Short public note"></textarea>
-          <button type="button" class="success" id="saveProfile">Save Profile</button>
-        </div>
-
-        <div class="toolPanel">
-          <label>Build Targets</label>
-          <div class="installGrid">
-            <div><b>Android</b><span>APK sideload wrapper</span></div>
-            <div><b>PC</b><span>Vercel web app</span></div>
-            <div><b>Sync</b><span>Supabase public room</span></div>
-            <div><b>Offline</b><span>PWA shell metadata</span></div>
-          </div>
+            <label>Avatar</label>
+            <input id="avatar" placeholder="NQ" maxlength="2" />
+            <label>Target</label>
+            <input id="target" placeholder="Main goal" />
+            <label>Public Note</label>
+            <textarea id="bio" placeholder="Short note"></textarea>
+            <button type="button" id="saveProfile">Save Profile</button>
+          </section>
+          <section class="panel">
+            <div class="panelHead"><div><label>Build Targets</label><h2>Install shape</h2></div></div>
+            <div class="installRows">
+              <div><span></span><b>Android APK</b><small>Sideload package</small></div>
+              <div><span></span><b>PC Web</b><small>Vercel app</small></div>
+              <div><span></span><b>Sync</b><small>Supabase public room</small></div>
+            </div>
+          </section>
         </div>
       </section>
-    </section>
-  </main>
+    </main>
+  </section>
 </div>
 
 <div class="modal" id="modal">
@@ -628,6 +487,7 @@ let pushTimer = null;
 let soundEnabled = localStorage.getItem(storageKeys.sound) === "on";
 let audioCtx = null;
 let lastOnlineCount = 1;
+let currentPage = pageFromHash();
 let selectedSubjectId = "";
 let selectedUnitId = "";
 let selectedGoalId = "";
@@ -635,27 +495,33 @@ let selectedQuizId = "";
 
 ensureState();
 
-function subject(name, goal, units){
-  return { name, goal, units };
+function subjectSeed(name, summary, units){
+  return { name, summary, units };
 }
 
-function unit(title, target, goals){
-  return { title, target, goals };
+function unitSeed(title, outcome, goals){
+  return { title, outcome, goals };
 }
 
-function task(title, kind = "task", minutes = 10, detail = "", points = 12){
-  return { title, kind, minutes, detail, points };
+function goalSeed(title, kind, points, detail){
+  return { title, kind, points, detail };
 }
 
-function quizGoal(title, question, options, answer, detail = ""){
-  return {
-    title,
-    kind: "quiz",
-    minutes: 4,
-    detail: detail || question,
-    points: 18,
-    quiz: { question, options, answer }
-  };
+function quizSeed(title, question, options, answer){
+  return { title, kind: "quiz", points: 24, detail: question, quiz: { question, options, answer } };
+}
+
+function uid(prefix = "id"){
+  const value = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${value}`;
+}
+
+function slug(value){
+  return String(value || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "item";
+}
+
+function clone(value){
+  return JSON.parse(JSON.stringify(value));
 }
 
 function getClientId(){
@@ -665,25 +531,6 @@ function getClientId(){
     localStorage.setItem(storageKeys.client, id);
   }
   return id;
-}
-
-function uid(prefix = "id"){
-  const value = typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${value}`;
-}
-
-function slug(value){
-  return String(value || "item")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 42) || "item";
-}
-
-function clone(value){
-  return JSON.parse(JSON.stringify(value));
 }
 
 function loadProfile(){
@@ -712,14 +559,10 @@ function loadState(){
   }
 }
 
-function defaultJourneys(){
-  return journeyTemplates.map(template => materializeTemplate(template, { clone: false }));
-}
-
 function freshState(){
-  const journeys = defaultJourneys();
+  const journeys = journeyTemplates.map(template => materializeJourney(template));
   return {
-    version: 3,
+    version: 4,
     journeys,
     activeJourneyId: journeys[0].id,
     players: {},
@@ -728,142 +571,123 @@ function freshState(){
   };
 }
 
-function materializeTemplate(template, { clone: shouldClone = false } = {}){
-  const journeyId = shouldClone ? uid("journey") : template.id;
+function normalizeState(raw){
+  const base = freshState();
+  if(!raw || typeof raw !== "object") return base;
+
+  let journeys = [];
+  if(Array.isArray(raw.journeys)){
+    journeys = raw.journeys.map(normalizeJourney).filter(Boolean);
+  }else if(raw.journey){
+    journeys = [convertFlatJourney(raw.journey)];
+  }
+
+  const seen = new Set(journeys.map(journey => journey.id));
+  base.journeys.forEach(journey => {
+    if(!seen.has(journey.id)){
+      journeys.push(journey);
+      seen.add(journey.id);
+    }
+  });
+
+  if(!journeys.length) journeys = base.journeys;
+
+  const activeJourneyId = journeys.some(journey => journey.id === raw.activeJourneyId)
+    ? raw.activeJourneyId
+    : journeys[0].id;
+
+  const next = {
+    version: 4,
+    journeys,
+    activeJourneyId,
+    players: raw.players && typeof raw.players === "object" ? raw.players : {},
+    activity: Array.isArray(raw.activity) ? raw.activity.slice(0, 80) : [],
+    updatedAt: raw.updatedAt || Date.now()
+  };
+  Object.values(next.players).forEach(normalizePlayer);
+  return next;
+}
+
+function materializeJourney(template){
   return normalizeJourney({
-    id: journeyId,
-    templateId: template.templateId || template.id,
+    id: template.id,
+    templateId: template.templateId,
     title: template.title,
-    finalGoal: template.finalGoal,
+    goal: template.goal,
     theme: template.theme,
-    days: template.days,
     createdAt: Date.now(),
     subjects: template.subjects
   });
 }
 
-function normalizeState(raw){
-  const base = freshState();
-  if(!raw || typeof raw !== "object") return base;
-
-  let journeys;
-  let activeJourneyId = raw.activeJourneyId;
-
-  if(Array.isArray(raw.journeys)){
-    journeys = raw.journeys.map((journey, index) => normalizeJourney(journey, index)).filter(Boolean);
-  }else if(raw.journey){
-    journeys = [normalizeJourney(raw.journey, 0), ...base.journeys];
-    activeJourneyId = base.activeJourneyId;
-  }else{
-    journeys = base.journeys;
-  }
-
-  if(!journeys.length) journeys = base.journeys;
-
-  const ids = new Set(journeys.map(journey => journey.id));
-  base.journeys.forEach(journey => {
-    if(!ids.has(journey.id)){
-      journeys.push(journey);
-      ids.add(journey.id);
-    }
-  });
-
-  if(!journeys.some(journey => journey.id === activeJourneyId)){
-    activeJourneyId = journeys[0].id;
-  }
-
-  const next = {
-    version: 3,
-    journeys,
-    activeJourneyId,
-    players: raw.players && typeof raw.players === "object" ? raw.players : {},
-    activity: Array.isArray(raw.activity) ? raw.activity.slice(0, 60) : [],
-    updatedAt: raw.updatedAt || Date.now()
-  };
-
-  Object.values(next.players).forEach(player => normalizePlayer(player));
-  return next;
-}
-
-function normalizeJourney(journey, index = 0){
+function normalizeJourney(journey){
   if(!journey || typeof journey !== "object") return null;
-  if(Array.isArray(journey.nodes)) return convertFlatJourney(journey, index);
+  if(Array.isArray(journey.nodes)) return convertFlatJourney(journey);
 
   const id = journey.id || uid("journey");
   const subjects = Array.isArray(journey.subjects) ? journey.subjects : [];
-  const normalizedSubjects = subjects.map((item, subjectIndex) => {
-    const subjectId = item.id || `${id}-${slug(item.name)}-${subjectIndex}`;
-    const units = Array.isArray(item.units) ? item.units : [];
+  const normalizedSubjects = subjects.map((subject, subjectIndex) => {
+    const subjectId = subject.id || `${id}-${slug(subject.name)}-${subjectIndex}`;
+    const units = Array.isArray(subject.units) ? subject.units : [];
     return {
       id: subjectId,
-      name: item.name || `Subject ${subjectIndex + 1}`,
-      goal: item.goal || "Clear this portion.",
-      color: item.color || colors[subjectIndex % colors.length],
-      units: units.map((unitItem, unitIndex) => {
-        const unitId = unitItem.id || `${subjectId}-${slug(unitItem.title)}-${unitIndex}`;
-        const goals = Array.isArray(unitItem.goals) ? unitItem.goals : [];
+      name: subject.name || `Subject ${subjectIndex + 1}`,
+      summary: subject.summary || subject.goal || "Clear this portion.",
+      color: subject.color || colors[subjectIndex % colors.length],
+      units: units.map((unit, unitIndex) => {
+        const unitId = unit.id || `${subjectId}-${slug(unit.title)}-${unitIndex}`;
+        const goals = Array.isArray(unit.goals) ? unit.goals : [];
         return {
           id: unitId,
-          title: unitItem.title || `Unit ${unitIndex + 1}`,
-          target: unitItem.target || "Finish the unit goals.",
+          title: unit.title || `Unit ${unitIndex + 1}`,
+          outcome: unit.outcome || unit.target || "Finish this unit.",
           goals: goals.map((goal, goalIndex) => ({
             id: goal.id || `${unitId}-${slug(goal.title)}-${goalIndex}`,
             title: goal.title || `Goal ${goalIndex + 1}`,
             kind: goal.kind || "task",
-            minutes: Number(goal.minutes || inferMinutes(goal.title || goal.kind)),
             detail: goal.detail || "",
             points: Number(goal.points || inferPoints(goal.kind || goal.title)),
             quiz: goal.quiz ? normalizeQuiz(goal.quiz) : null
           }))
         };
-      })
+      }).filter(unit => unit.goals.length)
     };
-  }).filter(item => item.units.length);
+  }).filter(subject => subject.units.length);
 
   return {
     id,
     templateId: journey.templateId || "",
     title: journey.title || "Custom Journey",
-    finalGoal: journey.finalGoal || journey.goal || "Reach the final goal.",
+    goal: journey.goal || journey.finalGoal || "Reach the final goal.",
     theme: journey.theme || "Study",
-    days: Math.max(1, Number(journey.days || 7)),
     createdAt: journey.createdAt || Date.now(),
     subjects: normalizedSubjects.length ? normalizedSubjects : fallbackSubjects(id)
   };
 }
 
-function convertFlatJourney(oldJourney, index = 0){
-  const id = oldJourney.id || `legacy-${index}`;
+function convertFlatJourney(oldJourney){
+  const id = oldJourney.id || uid("legacy");
   const nodes = (oldJourney.nodes || []).filter(node => node.type !== "start");
-  const groups = [];
-  for(let i = 0; i < nodes.length; i += 4){
-    groups.push(nodes.slice(i, i + 4));
-  }
   return normalizeJourney({
     id,
     title: oldJourney.title || "Legacy Path",
-    finalGoal: oldJourney.goal || "Finish the path.",
+    goal: oldJourney.goal || "Finish the path.",
     theme: oldJourney.theme || "Study",
-    days: oldJourney.days || 7,
-    createdAt: oldJourney.createdAt || Date.now(),
     subjects: [{
-      id: `${id}-path`,
       name: "Legacy Path",
-      goal: oldJourney.goal || "Finish the path.",
-      units: groups.map((group, groupIndex) => ({
-        id: `${id}-unit-${groupIndex}`,
-        title: `Gate Set ${groupIndex + 1}`,
-        target: "Converted from the previous path map.",
-        goals: group.map((node, nodeIndex) => ({
-          id: node.id || `${id}-goal-${groupIndex}-${nodeIndex}`,
-          title: node.title || `Gate ${nodeIndex + 1}`,
-          kind: node.type === "quiz" ? "quiz" : node.type === "finish" ? "final" : "task",
-          minutes: node.minutes || 10,
-          detail: node.detail || "",
+      summary: oldJourney.goal || "Finish the path.",
+      units: [{
+        title: "Converted Gates",
+        outcome: "Imported from the older map.",
+        goals: nodes.map(node => ({
+          id: node.id,
+          title: node.title,
+          kind: node.type === "quiz" ? "quiz" : "task",
+          detail: node.detail,
           points: node.points || 12,
           quiz: node.quiz || null
         }))
-      }))
+      }]
     }]
   });
 }
@@ -872,15 +696,15 @@ function fallbackSubjects(journeyId){
   return [{
     id: `${journeyId}-main`,
     name: "Main",
-    goal: "Clear the core tasks.",
+    summary: "Starter portion.",
     color: colors[0],
     units: [{
-      id: `${journeyId}-main-unit`,
+      id: `${journeyId}-unit`,
       title: "Starter Unit",
-      target: "Make the journey playable.",
+      outcome: "Make the journey playable.",
       goals: [
-        { id: `${journeyId}-starter-1`, title: "2m starter", kind: "2m", minutes: 2, detail: "Do the smallest visible move.", points: 8, quiz: null },
-        { id: `${journeyId}-starter-2`, title: "First proper task", kind: "task", minutes: 10, detail: "Finish one useful piece.", points: 12, quiz: null }
+        { id: `${journeyId}-goal-1`, title: "2m starter", kind: "2m", detail: "Do the smallest visible move.", points: 8, quiz: null },
+        { id: `${journeyId}-goal-2`, title: "First proper task", kind: "task", detail: "Finish one useful piece.", points: 12, quiz: null }
       ]
     }]
   }];
@@ -891,30 +715,18 @@ function normalizeQuiz(quiz){
   return {
     question: quiz.question || "Quiz question",
     options: options.length >= 2 ? options : ["Yes", "No"],
-    answer: Math.max(0, Math.min(options.length - 1, Number(quiz.answer || 0)))
+    answer: Math.max(0, Math.min(Math.max(0, options.length - 1), Number(quiz.answer || 0)))
   };
-}
-
-function inferMinutes(text){
-  const value = String(text || "").match(/(\d+)\s*m/i);
-  if(value) return Number(value[1]);
-  return 10;
 }
 
 function inferPoints(kind){
   const key = String(kind || "").toLowerCase();
-  if(key.includes("quiz")) return 18;
+  if(key.includes("quiz")) return 24;
   if(key.includes("5m")) return 22;
   if(key.includes("2m")) return 8;
-  if(key.includes("diagram") || key.includes("map")) return 16;
+  if(key.includes("diagram") || key.includes("map")) return 18;
+  if(key.includes("practice")) return 16;
   return 12;
-}
-
-function saveLocal(){
-  state.updatedAt = Date.now();
-  localStorage.setItem(storageKeys.state, JSON.stringify(state));
-  localStorage.setItem(storageKeys.profile, JSON.stringify(profile));
-  localStorage.setItem("nqPlayerName", profile.display_name);
 }
 
 function ensureState(){
@@ -932,14 +744,27 @@ function defaultPlayer(){
     bio: profile.bio || "",
     color: profile.color || colors[0],
     journeys: {},
+    shield: defaultShield(),
     xp: 0,
     coins: 0,
     streak: 0,
-    focus: 0,
-    blockPlan: defaultBlockPlan(),
-    online: true,
-    active: false
+    online: true
   };
+}
+
+function normalizePlayer(player){
+  player.id = player.id || uid("player");
+  player.name = player.name || "Player";
+  player.avatar = player.avatar || initials(player.name);
+  player.target = player.target || "";
+  player.bio = player.bio || "";
+  player.color = player.color || colors[0];
+  player.journeys = player.journeys && typeof player.journeys === "object" ? player.journeys : {};
+  player.shield = normalizeShield(player.shield || player.blockPlan);
+  player.xp = Number(player.xp || 0);
+  player.coins = Number(player.coins || 0);
+  player.streak = Number(player.streak || 0);
+  player.online = player.online !== false;
 }
 
 function ensurePlayer(){
@@ -948,92 +773,6 @@ function ensurePlayer(){
   normalizePlayer(state.players[clientId]);
   syncProfileIntoPlayer();
   progressFor(state.players[clientId], activeJourney().id);
-}
-
-function normalizePlayer(player){
-  player.id = player.id || uid("player");
-  player.name = player.name || "Player";
-  player.avatar = player.avatar || initials(player.name);
-  player.color = player.color || colors[0];
-  player.journeys = player.journeys && typeof player.journeys === "object" ? player.journeys : {};
-  player.xp = Number(player.xp || 0);
-  player.coins = Number(player.coins || 0);
-  player.streak = Number(player.streak || 0);
-  player.focus = Number(player.focus || 0);
-  player.blockPlan = normalizeBlockPlan(player.blockPlan);
-  player.online = player.online !== false;
-  player.active = player.active || false;
-}
-
-function defaultBlockPlan(){
-  return {
-    active: false,
-    strict: false,
-    activatedAt: null,
-    shieldScore: 42,
-    savedSessions: 0,
-    apps: ["Instagram", "YouTube Shorts", "Games"],
-    websites: ["youtube.com/shorts", "instagram.com/reels"],
-    allowlist: ["Notes", "Calculator", "Dictionary"],
-    rules: [
-      { id: "strict-mode", title: "Strict Mode", detail: "Lock edits while shield is active.", enabled: true, weight: 20 },
-      { id: "shorts-gate", title: "Shorts Gate", detail: "Block reels, shorts, and loop feeds.", enabled: true, weight: 18 },
-      { id: "study-allowlist", title: "Study Allowlist", detail: "Keep only study-safe tools visible.", enabled: true, weight: 16 },
-      { id: "notification-quiet", title: "Quiet Pings", detail: "Mute non-study interruptions.", enabled: false, weight: 12 },
-      { id: "night-lock", title: "Night Lock", detail: "Protect sleep hours from scroll traps.", enabled: false, weight: 14 }
-    ]
-  };
-}
-
-function normalizeBlockPlan(plan){
-  const base = defaultBlockPlan();
-  const next = plan && typeof plan === "object" ? { ...base, ...plan } : base;
-  next.apps = uniqueList(Array.isArray(next.apps) ? next.apps : base.apps);
-  next.websites = uniqueList(Array.isArray(next.websites) ? next.websites : base.websites);
-  next.allowlist = uniqueList(Array.isArray(next.allowlist) ? next.allowlist : base.allowlist);
-  const incomingRules = Array.isArray(next.rules) ? next.rules : [];
-  next.rules = base.rules.map(rule => {
-    const saved = incomingRules.find(item => item.id === rule.id);
-    return { ...rule, ...(saved || {}), enabled: saved ? saved.enabled !== false : rule.enabled };
-  });
-  next.active = Boolean(next.active);
-  next.strict = Boolean(next.strict);
-  next.shieldScore = Number.isFinite(Number(next.shieldScore)) ? Number(next.shieldScore) : blockScore(next);
-  next.savedSessions = Number(next.savedSessions || 0);
-  return next;
-}
-
-function uniqueList(items){
-  const seen = new Set();
-  return items
-    .map(item => String(item || "").trim())
-    .filter(Boolean)
-    .filter(item => {
-      const key = item.toLowerCase();
-      if(seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-function myBlockPlan(){
-  const player = me();
-  player.blockPlan = normalizeBlockPlan(player.blockPlan);
-  return player.blockPlan;
-}
-
-function blockScore(plan = myBlockPlan()){
-  const appScore = Math.min(24, plan.apps.length * 4);
-  const siteScore = Math.min(18, plan.websites.length * 3);
-  const allowScore = Math.min(12, plan.allowlist.length * 3);
-  const ruleScore = plan.rules.filter(rule => rule.enabled).reduce((sum, rule) => sum + Number(rule.weight || 0), 0);
-  const strictBonus = plan.strict ? 14 : 0;
-  const activeBonus = plan.active ? 8 : 0;
-  return Math.min(100, appScore + siteScore + allowScore + ruleScore + strictBonus + activeBonus);
-}
-
-function isShieldLocked(plan = myBlockPlan()){
-  return Boolean(plan.active && plan.strict);
 }
 
 function me(){
@@ -1051,540 +790,494 @@ function syncProfileIntoPlayer(){
   player.color = profile.color || player.color || colors[0];
 }
 
+function defaultShield(){
+  return {
+    active: false,
+    strict: false,
+    sessions: 0,
+    apps: ["Instagram", "YouTube Shorts", "Games"],
+    websites: ["youtube.com/shorts", "instagram.com/reels"],
+    allow: ["Notes", "Calculator", "Dictionary"],
+    rules: [
+      { id: "strict-edit", title: "Lock edits", detail: "Block list changes while shield is active.", enabled: true, weight: 18 },
+      { id: "short-form", title: "Short-form gate", detail: "Reels, shorts, and loop feeds stay out.", enabled: true, weight: 18 },
+      { id: "quiet-pings", title: "Quiet pings", detail: "Non-study alerts stay muted.", enabled: false, weight: 12 },
+      { id: "allow-only", title: "Study allowlist", detail: "Study tools remain available.", enabled: true, weight: 16 },
+      { id: "night-reset", title: "Night reset", detail: "Sleep-hour scrolling is discouraged.", enabled: false, weight: 12 }
+    ]
+  };
+}
+
+function normalizeShield(shield){
+  const base = defaultShield();
+  const next = shield && typeof shield === "object" ? { ...base, ...shield } : base;
+  next.apps = uniqueList(Array.isArray(next.apps) ? next.apps : base.apps);
+  next.websites = uniqueList(Array.isArray(next.websites) ? next.websites : base.websites);
+  next.allow = uniqueList(Array.isArray(next.allow) ? next.allow : (Array.isArray(next.allowlist) ? next.allowlist : base.allow));
+  const rules = Array.isArray(next.rules) ? next.rules : [];
+  next.rules = base.rules.map(rule => {
+    const saved = rules.find(item => item.id === rule.id);
+    return { ...rule, ...(saved || {}), enabled: saved ? saved.enabled !== false : rule.enabled };
+  });
+  next.active = Boolean(next.active);
+  next.strict = Boolean(next.strict);
+  next.sessions = Number(next.sessions || next.savedSessions || 0);
+  return next;
+}
+
+function uniqueList(items){
+  const seen = new Set();
+  return items.map(item => String(item || "").trim()).filter(Boolean).filter(item => {
+    const key = item.toLowerCase();
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function shieldScore(shield = me().shield){
+  const rules = shield.rules.filter(rule => rule.enabled).reduce((sum, rule) => sum + Number(rule.weight || 0), 0);
+  const apps = Math.min(18, shield.apps.length * 3);
+  const sites = Math.min(18, shield.websites.length * 3);
+  const allow = Math.min(12, shield.allow.length * 3);
+  const strict = shield.strict ? 14 : 0;
+  const active = shield.active ? 8 : 0;
+  return Math.min(100, rules + apps + sites + allow + strict + active);
+}
+
+function isShieldLocked(){
+  const shield = me().shield;
+  return Boolean(shield.active && shield.strict);
+}
+
 function progressFor(player = me(), journeyId = activeJourney().id){
   if(!player.journeys) player.journeys = {};
   if(!player.journeys[journeyId]){
     player.journeys[journeyId] = {
-      completed: Array.isArray(player.completed) ? [...player.completed] : [],
-      quizAnswers: {},
-      cursor: null,
-      focus: 0
+      done: Array.isArray(player.completed) ? [...player.completed] : [],
+      answers: {},
+      cursor: null
     };
   }
   const progress = player.journeys[journeyId];
-  progress.completed = Array.isArray(progress.completed) ? progress.completed : [];
-  progress.quizAnswers = progress.quizAnswers && typeof progress.quizAnswers === "object" ? progress.quizAnswers : {};
-  progress.focus = Number(progress.focus || 0);
+  progress.done = Array.isArray(progress.done) ? progress.done : (Array.isArray(progress.completed) ? progress.completed : []);
+  progress.answers = progress.answers && typeof progress.answers === "object" ? progress.answers : {};
   return progress;
 }
 
 function activeJourney(){
-  if(!state.journeys?.length) state.journeys = defaultJourneys();
+  if(!state.journeys?.length) state.journeys = freshState().journeys;
   return state.journeys.find(journey => journey.id === state.activeJourneyId) || state.journeys[0];
 }
 
 function allGoalContexts(journey = activeJourney()){
   const list = [];
-  journey.subjects.forEach(subjectItem => {
-    subjectItem.units.forEach(unitItem => {
-      unitItem.goals.forEach(goal => list.push({ journey, subject: subjectItem, unit: unitItem, goal }));
+  journey.subjects.forEach((subject, subjectIndex) => {
+    subject.units.forEach((unit, unitIndex) => {
+      unit.goals.forEach((goal, goalIndex) => list.push({ journey, subject, unit, goal, subjectIndex, unitIndex, goalIndex }));
     });
   });
   return list;
 }
 
-function goalContextsForSubject(subjectItem, journey = activeJourney()){
-  return allGoalContexts(journey).filter(item => item.subject.id === subjectItem.id);
+function contextsForSubject(subject, journey = activeJourney()){
+  return allGoalContexts(journey).filter(item => item.subject.id === subject.id);
 }
 
-function goalContextsForUnit(unitItem, journey = activeJourney()){
-  return allGoalContexts(journey).filter(item => item.unit.id === unitItem.id);
+function contextsForUnit(unit, journey = activeJourney()){
+  return allGoalContexts(journey).filter(item => item.unit.id === unit.id);
 }
 
-function completedSet(player = me(), journeyId = activeJourney().id){
-  return new Set(progressFor(player, journeyId).completed);
+function isDone(goal, player = me(), journeyId = activeJourney().id){
+  return progressFor(player, journeyId).done.includes(goal.id);
 }
 
-function isGoalDone(goal, player = me(), journeyId = activeJourney().id){
-  return completedSet(player, journeyId).has(goal.id);
-}
-
-function percentFor(contexts, player = me(), journeyId = activeJourney().id){
+function percent(contexts, player = me(), journeyId = activeJourney().id){
   if(!contexts.length) return 0;
-  const done = contexts.filter(item => isGoalDone(item.goal, player, journeyId)).length;
+  const done = contexts.filter(item => isDone(item.goal, player, journeyId)).length;
   return Math.round(done / contexts.length * 100);
 }
 
-function journeyProgress(player = me(), journey = activeJourney()){
-  return percentFor(allGoalContexts(journey), player, journey.id);
+function journeyPercent(player = me(), journey = activeJourney()){
+  return percent(allGoalContexts(journey), player, journey.id);
 }
 
-function firstOpenGoalContext(player = me(), journey = activeJourney()){
+function firstOpenContext(player = me(), journey = activeJourney()){
   const contexts = allGoalContexts(journey);
-  return contexts.find(item => !isGoalDone(item.goal, player, journey.id)) || contexts[contexts.length - 1] || null;
+  return contexts.find(item => !isDone(item.goal, player, journey.id)) || contexts[contexts.length - 1] || null;
 }
 
-function findGoalContext(goalId, journey = activeJourney()){
+function findContext(goalId, journey = activeJourney()){
   return allGoalContexts(journey).find(item => item.goal.id === goalId) || null;
 }
 
-function selectedGoalContext(){
+function selectedContext(){
   const journey = activeJourney();
-  return findGoalContext(selectedGoalId, journey) || firstOpenGoalContext(me(), journey);
+  return findContext(selectedGoalId, journey) || firstOpenContext(me(), journey);
 }
 
 function ensureSelection(){
   const journey = activeJourney();
   const player = state.players?.[clientId];
-  const progress = player ? progressFor(player, journey.id) : null;
-  const cursor = progress?.cursor;
-  const cursorGoal = cursor?.goalId ? findGoalContext(cursor.goalId, journey) : null;
-  const fallback = cursorGoal || firstOpenGoalContext(player || defaultPlayer(), journey) || allGoalContexts(journey)[0];
+  const cursor = player ? progressFor(player, journey.id).cursor : null;
+  const cursorContext = cursor?.goalId ? findContext(cursor.goalId, journey) : null;
+  const fallback = cursorContext || firstOpenContext(player || defaultPlayer(), journey) || allGoalContexts(journey)[0];
   if(!fallback) return;
 
-  if(!selectedSubjectId || !journey.subjects.some(item => item.id === selectedSubjectId)){
+  if(!selectedSubjectId || !journey.subjects.some(subject => subject.id === selectedSubjectId)){
     selectedSubjectId = fallback.subject.id;
   }
-
-  const subjectItem = journey.subjects.find(item => item.id === selectedSubjectId) || fallback.subject;
-  if(!selectedUnitId || !subjectItem.units.some(item => item.id === selectedUnitId)){
-    selectedUnitId = fallback.subject.id === subjectItem.id ? fallback.unit.id : subjectItem.units[0]?.id;
+  const subject = journey.subjects.find(item => item.id === selectedSubjectId) || fallback.subject;
+  if(!selectedUnitId || !subject.units.some(unit => unit.id === selectedUnitId)){
+    selectedUnitId = fallback.subject.id === subject.id ? fallback.unit.id : subject.units[0]?.id;
   }
-
-  const unitItem = subjectItem.units.find(item => item.id === selectedUnitId) || subjectItem.units[0];
-  if(!selectedGoalId || !unitItem?.goals.some(item => item.id === selectedGoalId)){
-    const firstInUnit = unitItem?.goals.find(goal => !isGoalDone(goal, player || me(), journey.id)) || unitItem?.goals[0];
-    selectedGoalId = firstInUnit?.id || fallback.goal.id;
+  const unit = subject.units.find(item => item.id === selectedUnitId) || subject.units[0];
+  if(!selectedGoalId || !unit?.goals.some(goal => goal.id === selectedGoalId)){
+    const open = unit?.goals.find(goal => !isDone(goal, player || me(), journey.id)) || unit?.goals[0];
+    selectedGoalId = open?.id || fallback.goal.id;
   }
-
-  const quiz = allGoalContexts(journey).find(item => item.goal.kind === "quiz" && !isGoalDone(item.goal, player || me(), journey.id))
+  const quiz = allGoalContexts(journey).find(item => item.goal.kind === "quiz" && !isDone(item.goal, player || me(), journey.id))
     || allGoalContexts(journey).find(item => item.goal.kind === "quiz");
-  if(!selectedQuizId || !findGoalContext(selectedQuizId, journey)){
+  if(!selectedQuizId || !findContext(selectedQuizId, journey)){
     selectedQuizId = quiz?.goal.id || "";
   }
+}
 
-  if(progress){
-    progress.cursor = {
-      journeyId: journey.id,
-      subjectId: selectedSubjectId,
-      unitId: selectedUnitId,
-      goalId: selectedGoalId
-    };
-  }
+function saveLocal(){
+  state.updatedAt = Date.now();
+  localStorage.setItem(storageKeys.state, JSON.stringify(state));
+  localStorage.setItem(storageKeys.profile, JSON.stringify(profile));
+  localStorage.setItem("nqPlayerName", profile.display_name);
 }
 
 function render(){
   ensureState();
-  renderPills();
-  renderProfile();
-  renderOverview();
-  renderBlocks();
-  renderJourneysPage();
-  renderActiveConsole();
+  renderShell();
+  renderDashboard();
+  renderMap();
+  renderSubjects();
+  renderBuild();
+  renderShield();
   renderQuiz();
   renderPublic();
+  renderProfile();
   saveLocal();
 }
 
-function renderPills(){
+function renderShell(){
+  const player = me();
   const journey = activeJourney();
-  const plan = myBlockPlan();
-  $("connectionPill").textContent = roomCode ? "ONLINE PUBLIC" : "LOCAL";
-  $("journeyPill").textContent = String(journey.theme || "JOURNEY").toUpperCase();
-  $("blockPill").textContent = plan.active ? "SHIELD ON" : "SHIELD READY";
-  $("blockPill").classList.toggle("active", plan.active);
-  $("soundToggle").textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
-  $("soundToggle").classList.toggle("active", soundEnabled);
+  $("pageKicker").textContent = journey.theme;
+  $("pageTitle").textContent = pageTitles[currentPage] || "Dashboard";
+  $("connectionView").textContent = roomCode ? "Online" : "Local";
+  $("activeJourneyView").textContent = journey.title;
+  $("sideXp").textContent = player.xp;
+  $("sideShield").textContent = `${shieldScore(player.shield)}%`;
+  $("soundToggle").textContent = soundEnabled ? "Sound On" : "Sound Off";
+  document.querySelectorAll("[data-page-link]").forEach(button => {
+    const active = button.dataset.pageLink === currentPage;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
 }
 
-function renderOverview(){
+function renderDashboard(){
   const journey = activeJourney();
   const player = me();
   const contexts = allGoalContexts(journey);
-  const doneCount = contexts.filter(item => isGoalDone(item.goal, player, journey.id)).length;
-  const progress = journeyProgress(player, journey);
+  const progress = journeyPercent(player, journey);
+  const done = contexts.filter(item => isDone(item.goal, player, journey.id)).length;
+  const current = selectedContext();
+  const shield = player.shield;
 
   $("journeyTheme").textContent = journey.theme;
   $("journeyTitle").textContent = journey.title;
-  $("journeyGoal").textContent = journey.finalGoal;
+  $("journeyGoal").textContent = journey.goal;
   $("progressText").textContent = `${progress}%`;
-  $("progressRing").style.setProperty("--progress", `${progress}%`);
-  $("clearedGoals").textContent = doneCount;
+  $("progressOrb").style.setProperty("--progress", `${progress}%`);
+  $("clearedGoals").textContent = done;
   $("totalGoals").textContent = contexts.length;
   $("subjectCount").textContent = journey.subjects.length;
-  $("quizCount").textContent = contexts.filter(item => item.goal.kind === "quiz").length;
+  $("rankView").textContent = rankFor(player.xp);
 
-  renderJourneyShelf();
-  renderSubjectRail();
-  renderUnitStack();
-}
-
-function renderJourneyShelf(){
-  const player = me();
-  $("journeyShelf").innerHTML = state.journeys.map(journey => {
-    const progress = journeyProgress(player, journey);
-    const contexts = allGoalContexts(journey);
-    const units = journey.subjects.reduce((sum, item) => sum + item.units.length, 0);
-    return `
-      <button type="button" class="journeyCard ${journey.id === state.activeJourneyId ? "active" : ""}" data-journey="${escapeAttr(journey.id)}">
-        <span>${escapeHTML(journey.theme)}</span>
-        <b>${escapeHTML(journey.title)}</b>
-        <small>${journey.subjects.length} subjects · ${units} units · ${contexts.length} goals</small>
-        <div class="meter"><i style="width:${progress}%"></i></div>
-      </button>
-    `;
-  }).join("");
-
-  document.querySelectorAll("[data-journey]").forEach(button => {
-    button.onclick = () => setActiveJourney(button.dataset.journey);
-  });
-}
-
-function renderSubjectRail(){
-  const journey = activeJourney();
-  const player = me();
-  $("subjectRail").innerHTML = journey.subjects.map(subjectItem => {
-    const contexts = goalContextsForSubject(subjectItem, journey);
-    const progress = percentFor(contexts, player, journey.id);
-    const complete = progress === 100;
-    return `
-      <button type="button" class="subjectCard ${subjectItem.id === selectedSubjectId ? "active" : ""} ${complete ? "done" : ""}"
-        data-subject="${escapeAttr(subjectItem.id)}" style="--subject:${escapeAttr(subjectItem.color)}">
-        <span class="subjectMark"></span>
-        <div>
-          <b>${escapeHTML(subjectItem.name)}</b>
-          <small>${subjectItem.units.length} units · ${contexts.length} goals</small>
-          <div class="subjectMiniPath">
-            ${subjectItem.units.map(unitItem => `<i class="${percentFor(goalContextsForUnit(unitItem, journey), player, journey.id) === 100 ? "done" : ""}"></i>`).join("")}
-          </div>
-        </div>
-        <strong>${progress}%</strong>
-      </button>
-    `;
-  }).join("");
-
-  document.querySelectorAll("[data-subject]").forEach(button => {
-    button.onclick = () => selectSubject(button.dataset.subject);
-  });
-}
-
-function renderUnitStack(){
-  const journey = activeJourney();
-  const subjectItem = journey.subjects.find(item => item.id === selectedSubjectId) || journey.subjects[0];
-  if(!subjectItem){
-    $("unitStack").innerHTML = `<div class="empty">No subjects yet.</div>`;
-    $("questLines").innerHTML = "";
-    $("mapNodes").innerHTML = "";
-    return;
+  if(current){
+    $("currentGoalTitle").textContent = current.goal.title;
+    $("currentGoalDetail").textContent = current.goal.detail || current.unit.outcome;
+    $("completeGoal").textContent = current.goal.kind === "quiz" && !isDone(current.goal, player, journey.id) ? "Open Quiz" : "Check Off";
+    $("completeGoal").disabled = isDone(current.goal, player, journey.id);
+    $("currentGoalMeta").innerHTML = detailRows([
+      ["Subject", current.subject.name],
+      ["Unit", current.unit.title],
+      ["Reward", `+${current.goal.points} XP`],
+      ["State", isDone(current.goal, player, journey.id) ? "Clear" : "Open"]
+    ]);
   }
 
-  const player = me();
-  $("selectedSubjectTitle").textContent = subjectItem.name;
-  $("selectedSubjectGoal").textContent = subjectItem.goal;
-  $("selectedSubjectProgress").textContent = `${percentFor(goalContextsForSubject(subjectItem, journey), player, journey.id)}%`;
-  renderQuestMap(subjectItem, journey, player);
+  $("shieldStatusTitle").textContent = shield.active ? "Active" : "Ready";
+  $("shieldMeterFill").style.width = `${shieldScore(shield)}%`;
+  $("shieldMiniStats").innerHTML = detailRows([
+    ["Apps", shield.apps.length],
+    ["Sites", shield.websites.length],
+    ["Strict", shield.strict ? "On" : "Off"],
+    ["Sessions", shield.sessions]
+  ]);
 
-  $("unitStack").innerHTML = `
-    <div class="unitPortalGrid">
-      ${subjectItem.units.map((unitItem, unitIndex) => {
-    const contexts = goalContextsForUnit(unitItem, journey);
-    const progress = percentFor(contexts, player, journey.id);
+  $("dashboardSubjects").innerHTML = journey.subjects.map(subject => {
+    const pct = percent(contextsForSubject(subject, journey), player, journey.id);
     return `
-      <button type="button" class="unitPortal ${unitItem.id === selectedUnitId ? "active" : ""} ${progress === 100 ? "done" : ""}" data-unit="${escapeAttr(unitItem.id)}">
-        <span>U${unitIndex + 1}</span>
-        <div>
-          <b>${escapeHTML(unitItem.title)}</b>
-          <small>${unitItem.goals.length} nodes · ${progress}% clear</small>
-        </div>
+      <button type="button" class="progressRow" data-subject="${escapeAttr(subject.id)}">
+        <span style="background:${escapeAttr(subject.color)}"></span>
+        <div><b>${escapeHTML(subject.name)}</b><small>${escapeHTML(subject.summary)}</small></div>
+        <strong>${pct}%</strong>
       </button>
     `;
-  }).join("")}
-    </div>
-  `;
+  }).join("");
+  document.querySelectorAll("#dashboardSubjects [data-subject]").forEach(button => {
+    button.onclick = () => {
+      selectSubject(button.dataset.subject);
+      setPage("map");
+    };
+  });
+}
 
+function renderMap(){
+  const journey = activeJourney();
+  const player = me();
+  const subject = journey.subjects.find(item => item.id === selectedSubjectId) || journey.subjects[0];
+  if(!subject) return;
+  const contexts = contextsForSubject(subject, journey);
+  $("mapSubjectTitle").textContent = subject.name;
+  $("mapSubjectGoal").textContent = subject.summary;
+  $("mapSubjectPercent").textContent = `${percent(contexts, player, journey.id)}%`;
+
+  $("mapSubjects").innerHTML = journey.subjects.map(item => {
+    const pct = percent(contextsForSubject(item, journey), player, journey.id);
+    return `
+      <button type="button" class="subjectButton ${item.id === subject.id ? "active" : ""}" data-map-subject="${escapeAttr(item.id)}">
+        <span style="background:${escapeAttr(item.color)}"></span>
+        <div><b>${escapeHTML(item.name)}</b><small>${pct}% clear</small></div>
+      </button>
+    `;
+  }).join("");
+
+  const points = contexts.map((context, index) => ({ ...context, point: mapPoint(context, index, contexts.length, subject.units.length) }));
+  const lines = [];
+  for(let index = 0; index < points.length - 1; index++){
+    const a = svgPoint(points[index].point);
+    const b = svgPoint(points[index + 1].point);
+    const doneLine = isDone(points[index].goal, player, journey.id) && isDone(points[index + 1].goal, player, journey.id);
+    const curve = index % 2 ? -48 : 48;
+    lines.push(`<path class="routeLine ${doneLine ? "done" : ""}" d="M ${a.x} ${a.y} C ${a.x + 74} ${a.y + curve}, ${b.x - 74} ${b.y - curve}, ${b.x} ${b.y}" />`);
+  }
+  $("dotLines").innerHTML = lines.join("");
+  $("dotNodes").innerHTML = points.map((context, index) => {
+    const done = isDone(context.goal, player, journey.id);
+    const active = context.goal.id === selectedGoalId;
+    return `
+      <button type="button" class="mapDot ${done ? "done" : ""} ${active ? "active" : ""} ${context.goal.kind === "quiz" ? "quiz" : ""}"
+        data-goal="${escapeAttr(context.goal.id)}"
+        aria-label="${escapeAttr(context.goal.title)}"
+        style="left:${context.point.x}%;top:${context.point.y}%">
+        <span>${dotLabel(context, index)}</span>
+      </button>
+    `;
+  }).join("");
+
+  $("mapUnits").innerHTML = subject.units.map((unit, index) => {
+    const pct = percent(contextsForUnit(unit, journey), player, journey.id);
+    return `
+      <button type="button" class="unitDotRow ${unit.id === selectedUnitId ? "active" : ""}" data-unit="${escapeAttr(unit.id)}">
+        <span>${index + 1}</span>
+        <div><b>${escapeHTML(unit.title)}</b><small>${pct}% clear</small></div>
+      </button>
+    `;
+  }).join("");
+
+  const selected = selectedContext();
+  if(selected){
+    const done = isDone(selected.goal, player, journey.id);
+    $("selectedGoalTitle").textContent = selected.goal.title;
+    $("selectedGoalDetail").textContent = selected.goal.detail || selected.unit.outcome;
+    $("selectedGoalRows").innerHTML = detailRows([
+      ["Subject", selected.subject.name],
+      ["Unit", selected.unit.title],
+      ["Type", selected.goal.kind],
+      ["Reward", `+${selected.goal.points} XP`],
+      ["State", done ? "Clear" : "Open"]
+    ]);
+    $("mapCompleteGoal").textContent = selected.goal.kind === "quiz" && !done ? "Open Quiz" : "Check Off";
+    $("mapCompleteGoal").disabled = done;
+  }
+
+  document.querySelectorAll("[data-map-subject]").forEach(button => {
+    button.onclick = () => selectSubject(button.dataset.mapSubject);
+  });
+  document.querySelectorAll("[data-goal]").forEach(button => {
+    button.onclick = () => selectGoal(button.dataset.goal);
+  });
   document.querySelectorAll("[data-unit]").forEach(button => {
     button.onclick = () => selectUnit(button.dataset.unit);
   });
 }
 
-function renderQuestMap(subjectItem, journey, player){
-  const contexts = mapContextsForSubject(subjectItem, journey);
-  const points = contexts.map((context, index) => ({ ...context, point: mapPoint(context, index, contexts.length, subjectItem.units.length) }));
-  const lines = [];
-
-  for(let index = 0; index < points.length - 1; index++){
-    const a = toSvgPoint(points[index].point);
-    const b = toSvgPoint(points[index + 1].point);
-    const curve = index % 2 ? -54 : 54;
-    const done = isGoalDone(points[index].goal, player, journey.id) && isGoalDone(points[index + 1].goal, player, journey.id);
-    lines.push(`<path class="questLine ${done ? "done" : ""}" d="M ${a.x} ${a.y} C ${a.x + 72} ${a.y + curve}, ${b.x - 72} ${b.y - curve}, ${b.x} ${b.y}" />`);
-  }
-
-  const unitFlags = subjectItem.units.map((unitItem, unitIndex) => {
-    const y = 14 + unitIndex * (72 / Math.max(1, subjectItem.units.length));
-    const progress = percentFor(goalContextsForUnit(unitItem, journey), player, journey.id);
-    return `
-      <button type="button" class="mapUnitFlag ${unitItem.id === selectedUnitId ? "active" : ""}" data-map-unit="${escapeAttr(unitItem.id)}" style="top:${Math.min(84, y)}%">
-        <span>U${unitIndex + 1}</span>
-        <b>${escapeHTML(unitItem.title)}</b>
-        <small>${progress}%</small>
-      </button>
-    `;
-  }).join("");
-
-  $("questLines").innerHTML = lines.join("");
-  $("mapNodes").innerHTML = unitFlags + points.map((context, index) => {
-    const done = isGoalDone(context.goal, player, journey.id);
-    const selected = context.goal.id === selectedGoalId;
-    const boss = context.goalIndex === context.unit.goals.length - 1;
-    const icon = goalIcon(context.goal, index, boss);
-    return `
-      <button type="button" class="mapNode ${context.goal.kind} ${boss ? "boss" : ""} ${done ? "done" : ""} ${selected ? "active" : ""}"
-        data-goal="${escapeAttr(context.goal.id)}"
-        style="left:${context.point.x}%;top:${context.point.y}%">
-        <span>${escapeHTML(icon)}</span>
-        <b>${escapeHTML(shortTitle(context.goal.title, 25))}</b>
-        <small>${escapeHTML(context.unit.title)}</small>
-      </button>
-    `;
-  }).join("");
-
-  document.querySelectorAll("[data-goal]").forEach(button => {
-    button.onclick = () => selectGoal(button.dataset.goal);
-  });
-  document.querySelectorAll("[data-map-unit]").forEach(button => {
-    button.onclick = () => selectUnit(button.dataset.mapUnit);
-  });
-}
-
-function mapContextsForSubject(subjectItem, journey = activeJourney()){
-  const contexts = [];
-  subjectItem.units.forEach((unitItem, unitIndex) => {
-    unitItem.goals.forEach((goal, goalIndex) => {
-      contexts.push({ journey, subject: subjectItem, unit: unitItem, goal, unitIndex, goalIndex });
-    });
-  });
-  return contexts;
-}
-
 function mapPoint(context, index, total, unitCount){
-  const x = total <= 1 ? 56 : 19 + (index / (total - 1)) * 72;
-  const laneSize = 72 / Math.max(1, unitCount);
-  const baseY = 15 + context.unitIndex * laneSize + laneSize / 2;
-  const wobble = [0, 10, -8, 8, -5, 12, -10, 6];
-  const goalOffset = context.goalIndex % 2 ? 3 : -2;
-  return {
-    x,
-    y: Math.max(13, Math.min(88, baseY + wobble[index % wobble.length] + goalOffset))
-  };
+  const x = total <= 1 ? 52 : 8 + (index / (total - 1)) * 84;
+  const lane = 76 / Math.max(1, unitCount);
+  const baseY = 12 + context.unitIndex * lane + lane / 2;
+  const wobble = [0, 8, -7, 10, -4, 6, -9, 4];
+  return { x, y: Math.max(11, Math.min(88, baseY + wobble[index % wobble.length])) };
 }
 
-function toSvgPoint(point){
-  return {
-    x: Math.round(point.x / 100 * 1100),
-    y: Math.round(point.y / 100 * 620)
-  };
+function svgPoint(point){
+  return { x: Math.round(point.x / 100 * 1120), y: Math.round(point.y / 100 * 560) };
 }
 
-function goalIcon(goal, index, boss = false){
-  if(goal.kind === "quiz") return "?";
-  if(boss) return "B";
-  if(String(goal.kind).includes("2m")) return "2M";
-  if(String(goal.kind).includes("5m")) return "5M";
-  if(goal.kind === "recall") return "R";
-  if(goal.kind === "diagram" || goal.kind === "map") return "M";
-  if(goal.kind === "practice") return "P";
-  return String(index + 1).padStart(2, "0");
+function dotLabel(context, index){
+  if(context.goal.kind === "quiz") return "?";
+  if(context.goalIndex === context.unit.goals.length - 1) return "B";
+  return String(index + 1);
 }
 
-function shortTitle(title, max = 26){
-  return String(title || "").length > max ? `${String(title).slice(0, max - 2)}..` : title;
-}
-
-function renderActiveConsole(){
-  const context = selectedGoalContext();
+function renderSubjects(){
+  const journey = activeJourney();
   const player = me();
-  if(!context){
-    $("activeGoalTitle").textContent = "No goal";
-    $("activeGoalDetail").textContent = "";
-    $("activeGoalKind").textContent = "TASK";
-    $("activeGoalMeta").innerHTML = "";
-    return;
-  }
+  const selectedSubject = journey.subjects.find(item => item.id === selectedSubjectId) || journey.subjects[0];
+  $("subjectTable").innerHTML = journey.subjects.map(subject => {
+    const pct = percent(contextsForSubject(subject, journey), player, journey.id);
+    return `
+      <button type="button" class="tableRow ${subject.id === selectedSubject?.id ? "active" : ""}" data-subject-row="${escapeAttr(subject.id)}">
+        <span style="background:${escapeAttr(subject.color)}"></span>
+        <div><b>${escapeHTML(subject.name)}</b><small>${escapeHTML(subject.summary)}</small></div>
+        <strong>${pct}%</strong>
+      </button>
+    `;
+  }).join("");
 
-  const { journey, subject: subjectItem, unit: unitItem, goal } = context;
-  const done = isGoalDone(goal, player, journey.id);
-  $("activeGoalTitle").textContent = goal.title;
-  $("activeGoalKind").textContent = goal.kind.toUpperCase();
-  $("activeGoalDetail").textContent = goal.detail || unitItem.target || subjectItem.goal;
-  $("activeGoalMeta").innerHTML = `
-    <span>${escapeHTML(subjectItem.name)}</span>
-    <span>${escapeHTML(unitItem.title)}</span>
-    <span>+${goal.points || 0} XP</span>
-    <span>${done ? "cleared" : "open"}</span>
-  `;
-  $("completeGoal").textContent = goal.kind === "quiz" && !done ? "Open Quiz" : done ? "Cleared" : "Check Off";
-  $("completeGoal").disabled = done;
-  $("xpView").textContent = player.xp;
-  $("coinView").textContent = player.coins;
-  $("streakView").textContent = player.streak;
-  $("rankView").textContent = rankFor(player.xp);
-  $("shieldMiniStatus").textContent = myBlockPlan().active ? "Active" : `${blockScore(myBlockPlan())}% ready`;
+  $("unitPanelTitle").textContent = selectedSubject?.name || "Selected subject";
+  $("unitList").innerHTML = selectedSubject ? selectedSubject.units.map((unit, unitIndex) => `
+    <article class="unitSection">
+      <header><span>${unitIndex + 1}</span><div><b>${escapeHTML(unit.title)}</b><small>${escapeHTML(unit.outcome)}</small></div></header>
+      <div>
+        ${unit.goals.map(goal => `
+          <button type="button" class="goalLine ${isDone(goal, player, journey.id) ? "done" : ""}" data-subject-goal="${escapeAttr(goal.id)}">
+            <span></span>
+            <div><b>${escapeHTML(goal.title)}</b><small>${escapeHTML(goal.kind)} / +${goal.points} XP</small></div>
+          </button>
+        `).join("")}
+      </div>
+    </article>
+  `).join("") : `<div class="empty">No subject selected.</div>`;
+
+  document.querySelectorAll("[data-subject-row]").forEach(button => {
+    button.onclick = () => selectSubject(button.dataset.subjectRow);
+  });
+  document.querySelectorAll("[data-subject-goal]").forEach(button => {
+    button.onclick = () => {
+      selectGoal(button.dataset.subjectGoal);
+      setPage("map");
+    };
+  });
 }
 
-function rankFor(xp){
-  const value = Number(xp || 0);
-  if(value >= 2400) return "Legend";
-  if(value >= 1500) return "Master";
-  if(value >= 900) return "Ace";
-  if(value >= 450) return "Ranger";
-  if(value >= 160) return "Scout";
-  return "Rookie";
+function renderBuild(){
+  $("presetRows").innerHTML = journeyTemplates.map(template => {
+    const units = template.subjects.reduce((sum, subject) => sum + subject.units.length, 0);
+    const goals = template.subjects.reduce((sum, subject) => sum + subject.units.reduce((inner, unit) => inner + unit.goals.length, 0), 0);
+    return `
+      <button type="button" class="presetRow" data-preset="${escapeAttr(template.templateId)}">
+        <span></span>
+        <div><b>${escapeHTML(template.title)}</b><small>${template.subjects.length} subjects / ${units} units / ${goals} goals</small></div>
+      </button>
+    `;
+  }).join("");
+  document.querySelectorAll("[data-preset]").forEach(button => {
+    button.onclick = () => addPresetJourney(button.dataset.preset);
+  });
 }
 
-function renderBlocks(){
-  const plan = myBlockPlan();
-  plan.shieldScore = blockScore(plan);
-  const locked = isShieldLocked(plan);
-  $("shieldCoreScore").textContent = plan.shieldScore;
-  $("shieldCore").classList.toggle("active", plan.active);
-  $("blockHeroText").textContent = plan.active
-    ? locked ? "Strict shield is holding the block list." : "Shield is active for this quest run."
-    : "Build a shield before you enter the quest map.";
-  $("activateShield").textContent = plan.active ? "Shield Active" : "Activate Shield";
-  $("activateShield").disabled = plan.active;
-  $("endShield").disabled = !plan.active;
-  $("strictMode").checked = plan.strict;
+function renderShield(){
+  const shield = me().shield;
+  const score = shieldScore(shield);
+  const locked = isShieldLocked();
+  $("shieldSubtitle").textContent = shield.active ? (locked ? "Strict shield is active." : "Shield is active.") : "Shield is ready.";
+  $("shieldScore").textContent = score;
+  $("activateShield").disabled = shield.active;
+  $("endShield").disabled = !shield.active;
+  $("strictMode").checked = shield.strict;
   $("strictMode").disabled = locked;
-  $("blockedAppCount").textContent = plan.apps.length;
-  $("blockedSiteCount").textContent = plan.websites.length;
-  $("allowedToolCount").textContent = plan.allowlist.length;
 
-  $("blockPresetGrid").innerHTML = blockPresets.map(preset => `
-    <button type="button" class="blockPreset" data-block-preset="${escapeAttr(preset.id)}" ${locked ? "disabled" : ""}>
-      <span>+${preset.reward}</span>
-      <b>${escapeHTML(preset.title)}</b>
-      <small>${preset.apps.length} apps · ${preset.websites.length} sites</small>
+  $("shieldPresetRows").innerHTML = shieldPresets.map(preset => `
+    <button type="button" class="presetRow" data-shield-preset="${escapeAttr(preset.id)}" ${locked ? "disabled" : ""}>
+      <span></span>
+      <div><b>${escapeHTML(preset.title)}</b><small>${preset.apps.length} apps / ${preset.websites.length} sites</small></div>
     </button>
   `).join("");
-
-  $("blockedApps").innerHTML = renderBlockChips(plan.apps, "app", locked);
-  $("blockedSites").innerHTML = renderBlockChips(plan.websites, "site", locked);
-  $("allowedTools").innerHTML = renderBlockChips(plan.allowlist, "allow", locked);
-
-  $("blockRules").innerHTML = plan.rules.map(rule => `
-    <button type="button" class="ruleCard ${rule.enabled ? "enabled" : ""}" data-block-rule="${escapeAttr(rule.id)}" ${locked ? "disabled" : ""}>
-      <span>${rule.enabled ? "ON" : "OFF"}</span>
-      <div>
-        <b>${escapeHTML(rule.title)}</b>
-        <small>${escapeHTML(rule.detail)}</small>
-      </div>
+  $("appList").innerHTML = renderCleanList(shield.apps, "app", locked);
+  $("siteList").innerHTML = renderCleanList(shield.websites, "site", locked);
+  $("allowList").innerHTML = renderCleanList(shield.allow, "allow", locked);
+  $("ruleList").innerHTML = shield.rules.map(rule => `
+    <button type="button" class="ruleRow ${rule.enabled ? "enabled" : ""}" data-rule="${escapeAttr(rule.id)}" ${locked ? "disabled" : ""}>
+      <span></span>
+      <div><b>${escapeHTML(rule.title)}</b><small>${escapeHTML(rule.detail)}</small></div>
       <strong>+${rule.weight}</strong>
     </button>
   `).join("");
 
-  $("blockStats").innerHTML = `
-    <div><span>Shield</span><b>${plan.shieldScore}%</b></div>
-    <div><span>Strict</span><b>${plan.strict ? "On" : "Off"}</b></div>
-    <div><span>Sessions</span><b>${plan.savedSessions}</b></div>
-    <div><span>Status</span><b>${plan.active ? "Active" : "Ready"}</b></div>
-  `;
-
-  document.querySelectorAll("[data-block-preset]").forEach(button => {
-    button.onclick = () => applyBlockPreset(button.dataset.blockPreset);
-  });
-  document.querySelectorAll("[data-remove-block]").forEach(button => {
-    button.onclick = () => removeBlockItem(button.dataset.blockType, button.dataset.removeBlock);
-  });
-  document.querySelectorAll("[data-block-rule]").forEach(button => {
-    button.onclick = () => toggleBlockRule(button.dataset.blockRule);
-  });
+  document.querySelectorAll("[data-shield-preset]").forEach(button => button.onclick = () => applyShieldPreset(button.dataset.shieldPreset));
+  document.querySelectorAll("[data-remove-item]").forEach(button => button.onclick = () => removeShieldItem(button.dataset.list, button.dataset.removeItem));
+  document.querySelectorAll("[data-rule]").forEach(button => button.onclick = () => toggleShieldRule(button.dataset.rule));
 }
 
-function renderBlockChips(items, type, locked){
+function renderCleanList(items, type, locked){
   return items.length ? items.map(item => `
-    <button type="button" class="blockChip" data-remove-block="${escapeAttr(item)}" data-block-type="${escapeAttr(type)}" ${locked ? "disabled" : ""}>
-      <span>${escapeHTML(item)}</span>
-      <b>x</b>
-    </button>
-  `).join("") : `<div class="empty compactEmpty">None yet.</div>`;
-}
-
-function renderJourneysPage(){
-  $("presetGrid").innerHTML = journeyTemplates.map(template => {
-    const units = template.subjects.reduce((sum, item) => sum + item.units.length, 0);
-    const goals = template.subjects.reduce((sum, item) => sum + item.units.reduce((unitSum, unitItem) => unitSum + unitItem.goals.length, 0), 0);
-    return `
-      <button type="button" class="presetCard" data-add-template="${escapeAttr(template.templateId)}">
-        <span>${escapeHTML(template.theme)}</span>
-        <b>${escapeHTML(template.title)}</b>
-        <small>${template.subjects.length} subjects · ${units} units · ${goals} micro goals</small>
-      </button>
-    `;
-  }).join("");
-
-  $("currentJourneyList").innerHTML = state.journeys.map(journey => {
-    const progress = journeyProgress(me(), journey);
-    return `
-      <button type="button" class="manageJourney ${journey.id === state.activeJourneyId ? "active" : ""}" data-manage-journey="${escapeAttr(journey.id)}">
-        <span>${escapeHTML(journey.theme)}</span>
-        <div>
-          <b>${escapeHTML(journey.title)}</b>
-          <small>${journey.subjects.length} subjects · ${allGoalContexts(journey).length} goals · ${progress}% mine</small>
-        </div>
-        <strong>Open</strong>
-      </button>
-    `;
-  }).join("");
-
-  document.querySelectorAll("[data-add-template]").forEach(button => {
-    button.onclick = () => addPresetJourney(button.dataset.addTemplate);
-  });
-  document.querySelectorAll("[data-manage-journey]").forEach(button => {
-    button.onclick = () => {
-      setActiveJourney(button.dataset.manageJourney);
-      setPage("overview");
-    };
-  });
+    <div class="cleanRow">
+      <span></span>
+      <b>${escapeHTML(item)}</b>
+      <button type="button" data-list="${escapeAttr(type)}" data-remove-item="${escapeAttr(item)}" ${locked ? "disabled" : ""}>Remove</button>
+    </div>
+  `).join("") : `<div class="empty">None added.</div>`;
 }
 
 function renderQuiz(){
   const journey = activeJourney();
   const player = me();
   const quizzes = allGoalContexts(journey).filter(item => item.goal.kind === "quiz" && item.goal.quiz);
-  let context = selectedQuizId ? findGoalContext(selectedQuizId, journey) : null;
+  let context = selectedQuizId ? findContext(selectedQuizId, journey) : null;
   if(!context || context.goal.kind !== "quiz"){
-    context = quizzes.find(item => !isGoalDone(item.goal, player, journey.id)) || quizzes[0] || null;
+    context = quizzes.find(item => !isDone(item.goal, player, journey.id)) || quizzes[0] || null;
     selectedQuizId = context?.goal.id || "";
   }
 
   if(!context){
-    $("quizTitle").textContent = "No quiz gates";
     $("quizContext").textContent = journey.title;
-    $("quizQuestionText").textContent = "Create a journey with quiz lines or add a preset.";
+    $("quizTitle").textContent = "No quiz gates";
+    $("quizQuestion").textContent = "Create a journey with quiz gates.";
     $("answerList").innerHTML = "";
   }else{
-    const { subject: subjectItem, unit: unitItem, goal } = context;
-    const done = isGoalDone(goal, player, journey.id);
-    $("quizTitle").textContent = goal.title;
-    $("quizContext").textContent = `${subjectItem.name} / ${unitItem.title}`;
-    $("quizQuestionText").textContent = goal.quiz.question;
-    $("answerList").innerHTML = goal.quiz.options.map((option, index) => `
-      <button type="button" class="${done && index === goal.quiz.answer ? "correct" : ""}" data-answer="${index}" data-quiz-goal="${escapeAttr(goal.id)}">
-        ${escapeHTML(option)}
+    const done = isDone(context.goal, player, journey.id);
+    $("quizContext").textContent = `${context.subject.name} / ${context.unit.title}`;
+    $("quizTitle").textContent = context.goal.title;
+    $("quizQuestion").textContent = context.goal.quiz.question;
+    $("answerList").innerHTML = context.goal.quiz.options.map((answer, index) => `
+      <button type="button" class="${done && index === context.goal.quiz.answer ? "correct" : ""}" data-answer="${index}" data-quiz="${escapeAttr(context.goal.id)}">
+        ${escapeHTML(answer)}
       </button>
     `).join("");
-    document.querySelectorAll("[data-answer]").forEach(button => {
-      button.onclick = () => answerQuiz(button.dataset.quizGoal, Number(button.dataset.answer));
-    });
   }
 
-  $("quizQueue").innerHTML = quizzes.length ? quizzes.map(item => {
-    const done = isGoalDone(item.goal, player, journey.id);
-    return `
-      <button type="button" class="taskRow ${done ? "done" : ""}" data-quiz-jump="${escapeAttr(item.goal.id)}">
-        <span>${done ? "OK" : "?"}</span>
-        <div>
-          <b>${escapeHTML(item.goal.title)}</b>
-          <small>${escapeHTML(item.subject.name)} · ${escapeHTML(item.unit.title)}</small>
-        </div>
-      </button>
-    `;
-  }).join("") : `<div class="empty">No quiz gates on this journey.</div>`;
+  $("quizQueue").innerHTML = quizzes.length ? quizzes.map(item => `
+    <button type="button" class="quizRow ${item.goal.id === selectedQuizId ? "active" : ""} ${isDone(item.goal, player, journey.id) ? "done" : ""}" data-quiz-jump="${escapeAttr(item.goal.id)}">
+      <span></span>
+      <div><b>${escapeHTML(item.goal.title)}</b><small>${escapeHTML(item.subject.name)} / ${escapeHTML(item.unit.title)}</small></div>
+    </button>
+  `).join("") : `<div class="empty">No quiz gates.</div>`;
 
+  document.querySelectorAll("[data-answer]").forEach(button => {
+    button.onclick = () => answerQuiz(button.dataset.quiz, Number(button.dataset.answer));
+  });
   document.querySelectorAll("[data-quiz-jump]").forEach(button => {
     button.onclick = () => {
-      const context = findGoalContext(button.dataset.quizJump, activeJourney());
+      const context = findContext(button.dataset.quizJump);
       if(context){
         selectedQuizId = context.goal.id;
         setCursor(context);
@@ -1597,28 +1290,21 @@ function renderQuiz(){
 function renderPublic(){
   const journey = activeJourney();
   const players = Object.values(state.players || {}).sort((a, b) => (b.xp || 0) - (a.xp || 0));
-  $("roomSummary").innerHTML = `
-    <div><b>${escapeHTML(journey.title)}</b><span>Active public journey</span></div>
-    <div><b>${journey.subjects.length}</b><span>Subjects</span></div>
-    <div><b>${allGoalContexts(journey).length}</b><span>Micro goals</span></div>
-  `;
-
+  $("roomStats").innerHTML = detailRows([
+    ["Journey", journey.title],
+    ["Subjects", journey.subjects.length],
+    ["Goals", allGoalContexts(journey).length],
+    ["Mode", roomCode ? "Online" : "Local"]
+  ]);
   $("players").innerHTML = players.length ? players.map(player => `
-    <div class="playerCard">
+    <div class="playerRow">
       <div class="avatar" style="background:${escapeAttr(player.color)}">${escapeHTML(player.avatar || initials(player.name))}</div>
-      <div>
-        <b>${escapeHTML(player.name || "Player")}${player.id === clientId ? " (you)" : ""}</b>
-        <span>${journeyProgress(player, journey)}% · ${player.xp || 0} XP · ${player.online ? "online" : "away"}</span>
-      </div>
+      <div><b>${escapeHTML(player.name || "Player")}${player.id === clientId ? " (you)" : ""}</b><small>${journeyPercent(player, journey)}% / ${player.xp || 0} XP / ${player.online ? "online" : "away"}</small></div>
     </div>
   `).join("") : `<div class="empty">No players yet.</div>`;
-
-  $("activityFeed").innerHTML = state.activity.length ? state.activity.slice(0, 22).map(item => `
-    <div class="activityItem">
-      <b>${escapeHTML(item.name)}</b>
-      <span>${escapeHTML(item.text)}</span>
-    </div>
-  `).join("") : `<div class="empty">No public activity yet.</div>`;
+  $("activityFeed").innerHTML = state.activity.length ? state.activity.slice(0, 24).map(item => `
+    <div class="activityRow"><b>${escapeHTML(item.name)}</b><small>${escapeHTML(item.text)}</small></div>
+  `).join("") : `<div class="empty">No activity yet.</div>`;
 }
 
 function renderProfile(){
@@ -1631,35 +1317,33 @@ function renderProfile(){
   $("profileTargetView").textContent = profile.target || "Local player";
 }
 
+function detailRows(rows){
+  return rows.map(([label, value]) => `<div><span>${escapeHTML(label)}</span><b>${escapeHTML(value)}</b></div>`).join("");
+}
+
 function setFieldValue(id, value){
   const field = $(id);
   if(field && document.activeElement !== field) field.value = value;
 }
 
-function setActiveJourney(journeyId){
-  if(!state.journeys.some(journey => journey.id === journeyId)) return;
-  state.activeJourneyId = journeyId;
-  selectedSubjectId = "";
-  selectedUnitId = "";
-  selectedGoalId = "";
-  selectedQuizId = "";
-  ensureSelection();
-  addActivity(`opened ${activeJourney().title}`);
-  message(`${activeJourney().title} is active.`);
-  playSound("tap");
-  render();
-  pushState();
+function rankFor(xp){
+  const value = Number(xp || 0);
+  if(value >= 2400) return "Legend";
+  if(value >= 1500) return "Master";
+  if(value >= 900) return "Ace";
+  if(value >= 450) return "Ranger";
+  if(value >= 160) return "Scout";
+  return "Rookie";
 }
 
 function selectSubject(subjectId){
   const journey = activeJourney();
-  const subjectItem = journey.subjects.find(item => item.id === subjectId);
-  if(!subjectItem) return;
-  selectedSubjectId = subjectItem.id;
-  const firstContext = goalContextsForSubject(subjectItem, journey).find(item => !isGoalDone(item.goal, me(), journey.id))
-    || goalContextsForSubject(subjectItem, journey)[0];
-  if(firstContext) setCursor(firstContext);
-  message(`${subjectItem.name} selected.`);
+  const subject = journey.subjects.find(item => item.id === subjectId);
+  if(!subject) return;
+  selectedSubjectId = subject.id;
+  const first = contextsForSubject(subject, journey).find(item => !isDone(item.goal, me(), journey.id)) || contextsForSubject(subject, journey)[0];
+  if(first) setCursor(first);
+  message(`${subject.name} selected.`);
   playSound("tap");
   render();
   pushState();
@@ -1667,24 +1351,21 @@ function selectSubject(subjectId){
 
 function selectUnit(unitId){
   const journey = activeJourney();
-  const subjectItem = journey.subjects.find(item => item.id === selectedSubjectId) || journey.subjects[0];
-  const unitItem = subjectItem?.units.find(item => item.id === unitId);
-  if(!unitItem) return;
-  const firstContext = goalContextsForUnit(unitItem, journey).find(item => !isGoalDone(item.goal, me(), journey.id))
-    || goalContextsForUnit(unitItem, journey)[0];
-  if(firstContext) setCursor(firstContext);
-  message(`${unitItem.title} selected.`);
+  const unit = journey.subjects.flatMap(subject => subject.units).find(item => item.id === unitId);
+  if(!unit) return;
+  const first = contextsForUnit(unit, journey).find(item => !isDone(item.goal, me(), journey.id)) || contextsForUnit(unit, journey)[0];
+  if(first) setCursor(first);
+  message(`${unit.title} selected.`);
   playSound("tap");
   render();
   pushState();
 }
 
 function selectGoal(goalId){
-  const context = findGoalContext(goalId, activeJourney());
+  const context = findContext(goalId);
   if(!context) return;
   setCursor(context);
-  $("completeGoal").disabled = false;
-  message(`${context.goal.title} selected.`);
+  message(context.goal.title);
   playSound("tap");
   render();
   pushState();
@@ -1695,9 +1376,7 @@ function setCursor(context){
   selectedUnitId = context.unit.id;
   selectedGoalId = context.goal.id;
   if(context.goal.kind === "quiz") selectedQuizId = context.goal.id;
-  const progress = progressFor(me(), context.journey.id);
-  progress.cursor = {
-    journeyId: context.journey.id,
+  progressFor(me(), context.journey.id).cursor = {
     subjectId: context.subject.id,
     unitId: context.unit.id,
     goalId: context.goal.id
@@ -1705,14 +1384,12 @@ function setCursor(context){
 }
 
 function completeSelectedGoal(){
-  const context = selectedGoalContext();
+  const context = selectedContext();
   if(!context) return;
-  if(context.goal.kind === "quiz" && !isGoalDone(context.goal, me(), context.journey.id)){
+  if(context.goal.kind === "quiz" && !isDone(context.goal, me(), context.journey.id)){
     selectedQuizId = context.goal.id;
     setPage("quiz");
-    message("Clear the quiz gate to check this off.");
-    playSound("tap");
-    render();
+    message("Clear the quiz gate.");
     return;
   }
   completeGoal(context);
@@ -1721,31 +1398,26 @@ function completeSelectedGoal(){
 function completeGoal(context){
   const player = me();
   const progress = progressFor(player, context.journey.id);
-  if(progress.completed.includes(context.goal.id)){
-    message("Already cleared.");
-    playSound("tap");
+  if(progress.done.includes(context.goal.id)){
+    message("Already clear.");
     return;
   }
-
-  progress.completed.push(context.goal.id);
+  progress.done.push(context.goal.id);
   player.xp += context.goal.points || 12;
   player.coins += context.goal.kind === "quiz" ? 6 : 3;
   player.streak += 1;
-  addActivity(`cleared ${context.goal.title} in ${context.subject.name}`);
-  playSound(context.goal.kind === "quiz" ? "quiz" : "complete");
-
-  const next = nextOpenAfter(context) || firstOpenGoalContext(player, context.journey);
+  addActivity(`cleared ${context.goal.title}`);
+  const next = nextOpenAfter(context) || firstOpenContext(player, context.journey);
   if(next) setCursor(next);
-
-  if(journeyProgress(player, context.journey) === 100){
+  if(journeyPercent(player, context.journey) === 100){
     pop("Journey Clear", `${context.journey.title} reached its final goal.`);
     addActivity(`finished ${context.journey.title}`);
     playSound("level");
     confetti(90);
   }else{
+    playSound("complete");
     confetti(18);
   }
-
   render();
   pushState();
 }
@@ -1753,151 +1425,17 @@ function completeGoal(context){
 function nextOpenAfter(context){
   const contexts = allGoalContexts(context.journey);
   const index = contexts.findIndex(item => item.goal.id === context.goal.id);
-  const after = contexts.slice(index + 1).find(item => !isGoalDone(item.goal, me(), context.journey.id));
-  return after || contexts.find(item => !isGoalDone(item.goal, me(), context.journey.id)) || null;
+  return contexts.slice(index + 1).find(item => !isDone(item.goal, me(), context.journey.id))
+    || contexts.find(item => !isDone(item.goal, me(), context.journey.id))
+    || null;
 }
 
-function answerQuiz(goalId, answer){
-  const context = findGoalContext(goalId, activeJourney());
-  if(!context?.goal.quiz) return;
-  const player = me();
-  const progress = progressFor(player, context.journey.id);
-  progress.quizAnswers[goalId] = answer;
-  if(answer === context.goal.quiz.answer){
-    message("Correct. Quiz gate cleared.");
-    setCursor(context);
-    completeGoal(context);
-  }else{
-    player.streak = 0;
-    message("Not yet. Try another answer.");
-    playSound("miss");
-    render();
-    pushState();
-  }
-}
-
-function applyBlockPreset(presetId){
-  const preset = blockPresets.find(item => item.id === presetId);
-  const plan = myBlockPlan();
-  if(!preset || isShieldLocked(plan)) return;
-  plan.apps = uniqueList([...plan.apps, ...preset.apps]);
-  plan.websites = uniqueList([...plan.websites, ...preset.websites]);
-  plan.shieldScore = blockScore(plan);
-  me().coins += Math.max(2, Math.round(preset.reward / 10));
-  message(`${preset.title} shield added.`);
-  playSound("complete");
-  render();
-  pushState();
-}
-
-function addBlockItem(type, value){
-  const plan = myBlockPlan();
-  const clean = String(value || "").trim();
-  if(!clean){
-    message("Add a name first.");
-    return;
-  }
-  if(isShieldLocked(plan)){
-    message("Strict shield is active.");
-    return;
-  }
-  const key = blockListKey(type);
-  plan[key] = uniqueList([...(plan[key] || []), clean]);
-  plan.shieldScore = blockScore(plan);
-  message(`${clean} added.`);
-  playSound("tap");
-  render();
-  pushState();
-}
-
-function removeBlockItem(type, value){
-  const plan = myBlockPlan();
-  if(isShieldLocked(plan)){
-    message("Strict shield is active.");
-    return;
-  }
-  const key = blockListKey(type);
-  plan[key] = (plan[key] || []).filter(item => item !== value);
-  plan.shieldScore = blockScore(plan);
-  message(`${value} removed.`);
-  playSound("tap");
-  render();
-  pushState();
-}
-
-function blockListKey(type){
-  if(type === "site") return "websites";
-  if(type === "allow") return "allowlist";
-  return "apps";
-}
-
-function toggleBlockRule(ruleId){
-  const plan = myBlockPlan();
-  if(isShieldLocked(plan)){
-    message("Strict shield is active.");
-    return;
-  }
-  const rule = plan.rules.find(item => item.id === ruleId);
-  if(!rule) return;
-  rule.enabled = !rule.enabled;
-  plan.shieldScore = blockScore(plan);
-  message(`${rule.title} ${rule.enabled ? "enabled" : "disabled"}.`);
-  playSound("tap");
-  render();
-  pushState();
-}
-
-function setStrictMode(enabled){
-  const plan = myBlockPlan();
-  if(isShieldLocked(plan)){
-    renderBlocks();
-    message("Strict shield is active.");
-    return;
-  }
-  plan.strict = Boolean(enabled);
-  plan.shieldScore = blockScore(plan);
-  message(plan.strict ? "Strict mode armed." : "Strict mode relaxed.");
-  playSound("tap");
-  render();
-  pushState();
-}
-
-function activateShield(){
-  const plan = myBlockPlan();
-  if(plan.active) return;
-  plan.active = true;
-  plan.activatedAt = Date.now();
-  plan.shieldScore = blockScore(plan);
-  plan.savedSessions += 1;
-  const player = me();
-  player.xp += Math.max(10, Math.round(plan.shieldScore / 2));
-  player.coins += Math.max(2, Math.round(plan.shieldScore / 20));
-  addActivity("activated a distraction shield");
-  message("Distraction shield activated.");
-  playSound("level");
-  confetti(28);
-  render();
-  pushState();
-}
-
-function endShield(){
-  const plan = myBlockPlan();
-  if(!plan.active) return;
-  plan.active = false;
-  plan.activatedAt = null;
-  plan.shieldScore = blockScore(plan);
-  message("Shield ended.");
-  playSound("pause");
-  render();
-  pushState();
-}
-
-function resetMine(confirmFirst = true){
-  if(confirmFirst && !confirm("Reset only your progress on this journey?")) return;
+function resetProgress(){
+  if(!confirm("Reset your progress on this journey?")) return;
   const player = me();
   const progress = progressFor(player, activeJourney().id);
-  progress.completed = [];
-  progress.quizAnswers = {};
+  progress.done = [];
+  progress.answers = {};
   progress.cursor = null;
   player.streak = 0;
   selectedSubjectId = "";
@@ -1905,16 +1443,35 @@ function resetMine(confirmFirst = true){
   selectedGoalId = "";
   selectedQuizId = "";
   ensureSelection();
-  message("Your progress on this journey was reset.");
+  message("Progress reset.");
   render();
   pushState();
+}
+
+function answerQuiz(goalId, answer){
+  const context = findContext(goalId);
+  if(!context?.goal.quiz) return;
+  const progress = progressFor(me(), context.journey.id);
+  progress.answers[goalId] = answer;
+  if(answer === context.goal.quiz.answer){
+    selectedQuizId = context.goal.id;
+    setCursor(context);
+    message("Correct.");
+    completeGoal(context);
+  }else{
+    me().streak = 0;
+    message("Not yet.");
+    playSound("miss");
+    render();
+    pushState();
+  }
 }
 
 function addPresetJourney(templateId){
   const template = journeyTemplates.find(item => item.templateId === templateId || item.id === templateId);
   if(!template) return;
-  const alreadyHasBase = state.journeys.some(journey => journey.id === template.id);
-  const journey = materializeTemplate(template, { clone: alreadyHasBase });
+  const duplicate = state.journeys.some(journey => journey.id === template.id);
+  const journey = normalizeJourney({ ...clone(template), id: duplicate ? uid("journey") : template.id, createdAt: Date.now() });
   state.journeys.push(journey);
   state.activeJourneyId = journey.id;
   selectedSubjectId = "";
@@ -1923,42 +1480,9 @@ function addPresetJourney(templateId){
   selectedQuizId = "";
   ensureSelection();
   addActivity(`added ${journey.title}`);
+  setPage("map");
   message(`${journey.title} added.`);
   playSound("start");
-  render();
-  pushState();
-}
-
-function createCustomJourney(){
-  const title = $("customTitle").value.trim() || "Custom Journey";
-  const finalGoal = $("customGoal").value.trim() || "Finish every subject, unit, and micro goal.";
-  const subjects = parseOutline($("customOutline").value);
-  if(!subjects.length){
-    message("Add at least one subject, one unit, and two goals.");
-    return;
-  }
-
-  const journey = normalizeJourney({
-    id: uid("journey"),
-    title,
-    finalGoal,
-    theme: $("customTheme").value,
-    days: 45,
-    createdAt: Date.now(),
-    subjects
-  });
-
-  state.journeys.push(journey);
-  state.activeJourneyId = journey.id;
-  selectedSubjectId = "";
-  selectedUnitId = "";
-  selectedGoalId = "";
-  selectedQuizId = "";
-  ensureSelection();
-  addActivity(`published ${title}`);
-  setPage("overview");
-  message("Custom public journey published.");
-  playSound("complete");
   render();
   pushState();
 }
@@ -1967,19 +1491,17 @@ function parseOutline(text){
   const subjects = [];
   let currentSubject = null;
   let currentUnit = null;
-
   const ensureSubject = () => {
     if(!currentSubject){
-      currentSubject = subject("Main", "Clear this portion.", []);
+      currentSubject = subjectSeed("Main", "Clear this portion.", []);
       subjects.push(currentSubject);
     }
     return currentSubject;
   };
-
   const ensureUnit = () => {
     ensureSubject();
     if(!currentUnit){
-      currentUnit = unit("Starter Unit", "Finish the starter goals.", []);
+      currentUnit = unitSeed("Starter Unit", "Finish the starter goals.", []);
       currentSubject.units.push(currentUnit);
     }
     return currentUnit;
@@ -1989,14 +1511,14 @@ function parseOutline(text){
     const subjectMatch = line.match(/^subject\s*:\s*(.+)$/i);
     const unitMatch = line.match(/^unit\s*:\s*(.+)$/i);
     if(subjectMatch){
-      currentSubject = subject(subjectMatch[1].trim(), `Complete ${subjectMatch[1].trim()} portion.`, []);
+      currentSubject = subjectSeed(subjectMatch[1].trim(), `Complete ${subjectMatch[1].trim()} portion.`, []);
       currentUnit = null;
       subjects.push(currentSubject);
       return;
     }
     if(unitMatch){
       ensureSubject();
-      currentUnit = unit(unitMatch[1].trim(), `Finish ${unitMatch[1].trim()} goals.`, []);
+      currentUnit = unitSeed(unitMatch[1].trim(), `Finish ${unitMatch[1].trim()} goals.`, []);
       currentSubject.units.push(currentUnit);
       return;
     }
@@ -2005,66 +1527,193 @@ function parseOutline(text){
       const title = parts[0] || "Quiz Gate";
       const question = parts[1] || title;
       const options = parts.slice(2, 5);
-      const maybeAnswer = Number(parts[5] || 0);
-      ensureUnit().goals.push(quizGoal(title, question, options.length >= 2 ? options : ["Yes", "No"], Number.isFinite(maybeAnswer) ? maybeAnswer : 0));
+      const answer = Number(parts[5] || 0);
+      ensureUnit().goals.push(quizSeed(title, question, options.length >= 2 ? options : ["Yes", "No"], Number.isFinite(answer) ? answer : 0));
       return;
     }
-    const clean = line.replace(/^[-*]\s*/, "");
-    const kind = inferKind(clean);
-    ensureUnit().goals.push(task(clean, kind, inferMinutes(clean), `Clear this ${kind} piece.`, inferPoints(kind)));
+    const title = line.replace(/^[-*]\s*/, "");
+    const kind = inferKind(title);
+    ensureUnit().goals.push(goalSeed(title, kind, inferPoints(kind), `Clear this ${kind} node.`));
   });
 
-  return subjects
-    .map(subjectItem => ({
-      ...subjectItem,
-      units: subjectItem.units
-        .map(unitItem => ({ ...unitItem, goals: unitItem.goals.filter(Boolean) }))
-        .filter(unitItem => unitItem.goals.length)
-    }))
-    .filter(subjectItem => subjectItem.units.length);
+  return subjects.map(subject => ({
+    ...subject,
+    units: subject.units.map(unit => ({ ...unit, goals: unit.goals.filter(Boolean) })).filter(unit => unit.goals.length)
+  })).filter(subject => subject.units.length);
 }
 
 function inferKind(title){
   const text = String(title || "").toLowerCase();
   if(text.includes("2m")) return "2m";
   if(text.includes("5m")) return "5m";
-  if(text.includes("quiz")) return "quiz";
   if(text.includes("diagram")) return "diagram";
   if(text.includes("map")) return "map";
   if(text.includes("recall")) return "recall";
   if(text.includes("formula")) return "formula";
   if(text.includes("practice") || text.includes("solve")) return "practice";
+  if(text.includes("rule")) return "rule";
   return "task";
 }
 
-function previewCustom(){
+function createCustomJourney(){
   const subjects = parseOutline($("customOutline").value);
-  const unitCount = subjects.reduce((sum, subjectItem) => sum + subjectItem.units.length, 0);
-  const goalCount = subjects.reduce((sum, subjectItem) => sum + subjectItem.units.reduce((goalSum, unitItem) => goalSum + unitItem.goals.length, 0), 0);
-  $("outlinePreview").innerHTML = subjects.length ? `
-    <b>${subjects.length} subjects</b>
-    <span>${unitCount} units</span>
-    <span>${goalCount} micro goals</span>
-  ` : `<span>Add a subject, unit, and goals.</span>`;
-  message(subjects.length ? "Outline shape is ready." : "Outline needs more structure.");
+  if(!subjects.length){
+    message("Add at least one subject, unit, and goal.");
+    return;
+  }
+  const journey = normalizeJourney({
+    id: uid("journey"),
+    title: $("customTitle").value.trim() || "Custom Journey",
+    goal: $("customGoal").value.trim() || "Finish every node.",
+    theme: $("customTheme").value,
+    createdAt: Date.now(),
+    subjects
+  });
+  state.journeys.push(journey);
+  state.activeJourneyId = journey.id;
+  selectedSubjectId = "";
+  selectedUnitId = "";
+  selectedGoalId = "";
+  selectedQuizId = "";
+  ensureSelection();
+  addActivity(`published ${journey.title}`);
+  setPage("map");
+  message("Journey published.");
+  playSound("complete");
+  render();
+  pushState();
 }
 
-function loadTenOutline(){
+function previewJourney(){
+  const subjects = parseOutline($("customOutline").value);
+  const unitCount = subjects.reduce((sum, subject) => sum + subject.units.length, 0);
+  const goalCount = subjects.reduce((sum, subject) => sum + subject.units.reduce((inner, unit) => inner + unit.goals.length, 0), 0);
+  $("shapePreview").innerHTML = detailRows([
+    ["Subjects", subjects.length],
+    ["Units", unitCount],
+    ["Goals", goalCount],
+    ["Shape", subjects.length ? "Ready" : "Incomplete"]
+  ]);
+  message(subjects.length ? "Shape ready." : "Shape incomplete.");
+}
+
+function loadOutline(){
   $("customTitle").value = "10th Portion Quest";
-  $("customGoal").value = "Complete all subjects, units, 2m questions, 5m answers, recall rounds, and quiz gates.";
+  $("customGoal").value = "Complete every subject, unit, answer frame, recall round, and quiz gate.";
   $("customTheme").value = "Class 10";
   $("customOutline").value = outlineSample;
-  previewCustom();
+  previewJourney();
+}
+
+function applyShieldPreset(presetId){
+  const preset = shieldPresets.find(item => item.id === presetId);
+  if(!preset || isShieldLocked()) return;
+  const shield = me().shield;
+  shield.apps = uniqueList([...shield.apps, ...preset.apps]);
+  shield.websites = uniqueList([...shield.websites, ...preset.websites]);
+  shield.allow = uniqueList([...shield.allow, ...preset.allow]);
+  me().coins += 3;
+  message(`${preset.title} applied.`);
+  playSound("complete");
+  render();
+  pushState();
+}
+
+function addShieldItem(type, value){
+  const clean = String(value || "").trim();
+  if(!clean){
+    message("Add a name first.");
+    return;
+  }
+  if(isShieldLocked()){
+    message("Strict shield is active.");
+    return;
+  }
+  const shield = me().shield;
+  const key = shieldKey(type);
+  shield[key] = uniqueList([...shield[key], clean]);
+  message(`${clean} added.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function removeShieldItem(type, value){
+  if(isShieldLocked()){
+    message("Strict shield is active.");
+    return;
+  }
+  const shield = me().shield;
+  const key = shieldKey(type);
+  shield[key] = shield[key].filter(item => item !== value);
+  message(`${value} removed.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function shieldKey(type){
+  if(type === "site") return "websites";
+  if(type === "allow") return "allow";
+  return "apps";
+}
+
+function toggleShieldRule(ruleId){
+  if(isShieldLocked()){
+    message("Strict shield is active.");
+    return;
+  }
+  const rule = me().shield.rules.find(item => item.id === ruleId);
+  if(!rule) return;
+  rule.enabled = !rule.enabled;
+  message(`${rule.title} ${rule.enabled ? "on" : "off"}.`);
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function setStrictMode(enabled){
+  if(isShieldLocked()){
+    renderShield();
+    message("Strict shield is active.");
+    return;
+  }
+  me().shield.strict = Boolean(enabled);
+  message(enabled ? "Strict mode on." : "Strict mode off.");
+  playSound("tap");
+  render();
+  pushState();
+}
+
+function activateShield(){
+  const player = me();
+  if(player.shield.active) return;
+  player.shield.active = true;
+  player.shield.sessions += 1;
+  const score = shieldScore(player.shield);
+  player.xp += Math.max(10, Math.round(score / 2));
+  player.coins += Math.max(2, Math.round(score / 24));
+  addActivity("activated a distraction shield");
+  message("Shield active.");
+  playSound("level");
+  confetti(28);
+  render();
+  pushState();
+}
+
+function endShield(){
+  const shield = me().shield;
+  if(!shield.active) return;
+  shield.active = false;
+  message("Shield ended.");
+  playSound("pause");
+  render();
+  pushState();
 }
 
 function addActivity(text){
-  state.activity.unshift({
-    id: uid("activity"),
-    name: profile.display_name || "Player",
-    text,
-    at: Date.now()
-  });
-  state.activity = state.activity.slice(0, 60);
+  state.activity.unshift({ id: uid("activity"), name: profile.display_name || "Player", text, at: Date.now() });
+  state.activity = state.activity.slice(0, 80);
 }
 
 async function joinPublicPath(){
@@ -2072,9 +1721,7 @@ async function joinPublicPath(){
     message("Add Supabase env values to connect Android and PC users.");
     return;
   }
-
   roomCode = PUBLIC_PATH_CODE;
-
   if(channel){
     await supabase.removeChannel(channel);
     channel = null;
@@ -2086,12 +1733,10 @@ async function joinPublicPath(){
     .select("state,room_name")
     .eq("room_code", PUBLIC_PATH_CODE)
     .maybeSingle();
-
   if(error){
     message(error.message);
     return;
   }
-
   if(data?.state){
     syncingRemote = true;
     state = normalizeState(data.state);
@@ -2112,12 +1757,10 @@ async function joinPublicPath(){
   }
 
   ensureState();
-
   channel = supabase
     .channel(`journey:${PUBLIC_PATH_CODE}`, { config: { presence: { key: clientId } } })
     .on("presence", { event: "sync" }, () => {
-      const presence = channel.presenceState();
-      const online = Object.values(presence).flat();
+      const online = Object.values(channel.presenceState()).flat();
       Object.values(state.players || {}).forEach(player => player.online = false);
       online.forEach(item => {
         if(state.players[item.id]) state.players[item.id].online = true;
@@ -2145,8 +1788,8 @@ async function joinPublicPath(){
       if(status === "SUBSCRIBED"){
         await channel.track({ id: clientId, name: profile.display_name, at: Date.now() });
         lastOnlineCount = 1;
-        addActivity("entered the public path");
-        message("Entered public journey path.");
+        addActivity("entered the public room");
+        message("Entered public room.");
         playSound("online");
         render();
         pushState();
@@ -2155,12 +1798,7 @@ async function joinPublicPath(){
 }
 
 function mergePlayer(localPlayer, remotePlayer){
-  const merged = {
-    ...(remotePlayer || {}),
-    ...(localPlayer || {}),
-    id: clientId,
-    online: true
-  };
+  const merged = { ...(remotePlayer || {}), ...(localPlayer || {}), id: clientId, online: true };
   normalizePlayer(merged);
   return merged;
 }
@@ -2194,26 +1832,21 @@ function updateProfileFromInputs(){
 }
 
 function setPage(page, push = true){
-  const normalized = pageAliases[page] || page;
-  const next = pages.includes(normalized) ? normalized : "overview";
+  currentPage = pages.includes(pageAliases[page] || page) ? (pageAliases[page] || page) : "dashboard";
   document.querySelectorAll("[data-page]").forEach(section => {
-    section.classList.toggle("active", section.dataset.page === next);
+    section.classList.toggle("active", section.dataset.page === currentPage);
   });
-  document.querySelectorAll("[data-page-link]").forEach(button => {
-    const active = button.dataset.pageLink === next;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-current", active ? "page" : "false");
-  });
-  if(push && window.location.hash !== `#${next}`) history.pushState(null, "", `#${next}`);
+  if(push && window.location.hash !== `#${currentPage}`) history.pushState(null, "", `#${currentPage}`);
+  renderShell();
 }
 
 function pageFromHash(){
   const page = window.location.hash.replace("#", "");
-  return pageAliases[page] || (pages.includes(page) ? page : "overview");
+  return pageAliases[page] || (pages.includes(page) ? page : "dashboard");
 }
 
 function initials(name){
-  return String(name || "NQ").trim().split(/\s+/).slice(0, 2).map(x => x[0]?.toUpperCase()).join("") || "NQ";
+  return String(name || "NQ").trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join("") || "NQ";
 }
 
 function escapeHTML(str){
@@ -2256,7 +1889,7 @@ function confetti(count = 40){
 function setSoundEnabled(enabled){
   soundEnabled = enabled;
   localStorage.setItem(storageKeys.sound, enabled ? "on" : "off");
-  renderPills();
+  renderShell();
   if(enabled) playSound("toggle");
 }
 
@@ -2319,33 +1952,34 @@ function bind(){
   window.addEventListener("hashchange", () => setPage(pageFromHash(), false));
 
   $("completeGoal").onclick = completeSelectedGoal;
-  $("resetProgress").onclick = () => resetMine(true);
+  $("mapCompleteGoal").onclick = completeSelectedGoal;
+  $("mapResetProgress").onclick = resetProgress;
+  $("createJourney").onclick = createCustomJourney;
+  $("previewJourney").onclick = previewJourney;
+  $("loadOutline").onclick = loadOutline;
   $("activateShield").onclick = activateShield;
   $("endShield").onclick = endShield;
   $("strictMode").onchange = event => setStrictMode(event.target.checked);
-  $("addBlockApp").onclick = () => {
-    addBlockItem("app", $("blockAppInput").value);
-    $("blockAppInput").value = "";
+  $("addApp").onclick = () => {
+    addShieldItem("app", $("appInput").value);
+    $("appInput").value = "";
   };
-  $("addBlockSite").onclick = () => {
-    addBlockItem("site", $("blockSiteInput").value);
-    $("blockSiteInput").value = "";
+  $("addSite").onclick = () => {
+    addShieldItem("site", $("siteInput").value);
+    $("siteInput").value = "";
   };
-  $("addAllowTool").onclick = () => {
-    addBlockItem("allow", $("allowToolInput").value);
-    $("allowToolInput").value = "";
+  $("addAllow").onclick = () => {
+    addShieldItem("allow", $("allowInput").value);
+    $("allowInput").value = "";
   };
   $("joinPublic").onclick = joinPublicPath;
-  $("createJourney").onclick = createCustomJourney;
-  $("previewCustom").onclick = previewCustom;
-  $("loadTenOutline").onclick = loadTenOutline;
   $("saveProfile").onclick = updateProfileFromInputs;
   $("soundToggle").onclick = () => setSoundEnabled(!soundEnabled);
   $("closeModal").onclick = () => $("modal").classList.remove("show");
 }
 
 bind();
-setPage(pageFromHash(), false);
+setPage(currentPage, false);
 render();
 registerServiceWorker();
-message(hasSupabase ? "Ready. Enter the public path to sync Android and PC." : "Solo preview. Add Supabase env values for live public sync.");
+message(hasSupabase ? "Ready. Enter Public to sync Android and PC." : "Solo mode. Add Supabase env values for public sync.");
