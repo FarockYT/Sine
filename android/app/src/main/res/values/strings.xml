@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NeuroQuest Journey</string>
+    <string name="title_activity_main">NeuroQuest Journey</string>
+    <string name="package_name">app.neuroquest.journey</string>
+    <string name="custom_url_scheme">app.neuroquest.journey</string>
+</resources>

@@ -1,18 +1,29 @@
 # NeuroQuest Journey
 
-A public gamified journey-path app for Android APK sideload use and PC web use. Everyone can enter the same public path when Supabase is configured, while each player keeps their own progress through subtasks, quiz gates, focus blocks, and the final goal.
+A public gamified journey app for Android APK sideload use and PC web use. Everyone can enter the same public room when Supabase is configured, while each player keeps their own progress through subjects, units, micro goals, quiz gates, focus blocks, and the final goal.
 
 ## What It Does
 
 - Public journey room: `PUBLIC-JOURNEY-PATH`
 - Android-friendly PWA shell and Capacitor config for APK wrapping
 - PC web deployment through Vercel
-- Preset journeys for study, project launch, and daily stabilization
-- Custom journey builder with journey name, goal end, duration, path style, subtasks, and quiz gate
-- Wonky tournament-style map visualization
-- Time cursor that moves across the path as the journey duration passes
-- Player-specific gate completion on a shared public journey
-- Quiz gates with answer checking
+- Multiple public journeys in one shared world
+- 10th Portion Quest preset with Biology, Physics, Prose, Grammar, History, and Maths
+- Each journey is split into subjects, units, and micro goals such as 2m questions, 5m answer frames, recall rounds, diagrams, practice, and quiz gates
+- Custom syllabus builder with a simple outline format:
+
+```text
+Subject: Biology
+Unit: Life Processes
+- 2m question: nutrition keywords
+- 5m answer frame: digestion
+? Quiz | What carries oxygen in blood? | Red blood cells | Platelets | Starch | 0
+```
+
+- Wonky curriculum-board visualization with subject lanes, unit cards, and checkable micro goals
+- Journey duration meter that moves as time passes
+- Player-specific progress on shared public journeys
+- Quiz gates with answer checking and sound effects
 - Public player list and activity feed
 - Optional sound effects
 - Offline-capable install metadata via service worker and web manifest
@@ -76,8 +87,33 @@ This repo includes:
 - `public/sw.js`
 - `public/icon.svg`
 - `capacitor.config.json`
+- `android/` native Capacitor project after `npx cap add android`
 
-To create a sideloadable APK locally, install Capacitor tooling in your Android build environment, build the web app, add Android, then build the APK from Android Studio or Gradle. This is meant for direct APK distribution, not Play Store/App Store distribution.
+Build and sync Android assets:
+
+```bash
+npm run mobile:build
+```
+
+Build a debug APK:
+
+```bash
+npm run mobile:apk
+```
+
+The debug APK output is:
+
+```bash
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+For convenience, the current debug APK is also copied to:
+
+```bash
+apk/NeuroQuest-Journey-debug.apk
+```
+
+This is meant for direct APK distribution/sideloading, not Play Store/App Store distribution.
 
 ## Security Note
 
