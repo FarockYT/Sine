@@ -9,6 +9,8 @@ A public gamified focus and journey OS for Android APK sideload use and PC web u
 - PC web deployment through Vercel
 - Multiple public journeys in one shared world
 - Separate app pages instead of a single tag-style surface
+- Courses page for choosing exactly one active course map at a time
+- Dashboard active-map card showing the course currently driving the Journey Map
 - Focus page with Pomodoro, timer, stopwatch, ambient sound choice, strict shield toggle, session history, and task or journey-dot targeting
 - Task command center with checkable tasks, focus-target handoff, reminders, and an ADHD-friendly capture/choose/focus/close flow
 - 10th Portion Quest preset with Biology, Physics, Prose, Grammar, History, and Maths

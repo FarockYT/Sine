@@ -290,8 +290,49 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   font-size:1.1rem;
   overflow-wrap:anywhere;
 }
-.currentPanel,.shieldPanel,.focusPanel,.taskPanel{display:grid;gap:10px;align-content:start}
+.currentPanel,.shieldPanel,.focusPanel,.taskPanel,.currentMapPanel{display:grid;gap:10px;align-content:start}
 .widePanel{grid-column:1 / -1}
+.currentMapPanel{
+  grid-row:span 2;
+}
+.dashboardMapPreview,.courseHeroPreview,.coursePreviewDots{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.dashboardMapPreview,.courseHeroPreview{
+  min-height:86px;
+  align-content:center;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px;
+  background:
+    linear-gradient(135deg,rgba(37,99,235,.08),rgba(15,118,110,.1)),
+    #fff;
+}
+.dashboardMapPreview span,.courseHeroPreview span,.coursePreviewDots span{
+  width:16px;
+  height:16px;
+  border:3px solid #fff;
+  border-radius:50%;
+  background:var(--gold);
+  box-shadow:0 5px 10px rgba(15,23,42,.16);
+}
+.dashboardMapPreview span.done,.courseHeroPreview span.done,.coursePreviewDots span.done{background:var(--green)}
+.dashboardMapPreview span.quiz,.courseHeroPreview span.quiz,.coursePreviewDots span.quiz{background:var(--violet)}
+.dashboardMapPreview .emptyDot,.courseHeroPreview .emptyDot,.coursePreviewDots .emptyDot{background:#cbd5e1}
+.dashboardMapPreview b,.courseHeroPreview b,.coursePreviewDots b{
+  min-width:32px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:999px;
+  color:var(--muted);
+  background:#fff;
+  font-size:.75rem;
+}
 .dotMeta{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -515,6 +556,92 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   color:var(--muted);
   font-weight:830;
   line-height:1.4;
+}
+.coursesPage{
+  display:grid;
+  grid-template-columns:minmax(320px,.72fr) minmax(0,1.28fr);
+  gap:14px;
+  align-items:start;
+}
+.activeCoursePanel{
+  position:sticky;
+  top:18px;
+  display:grid;
+  gap:12px;
+}
+.coursePickerPanel{
+  display:grid;
+  gap:12px;
+}
+.courseList{
+  display:grid;
+  gap:12px;
+}
+.courseCard{
+  display:grid;
+  gap:12px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px;
+  background:#fff;
+}
+.courseCard.active{
+  border-color:rgba(37,99,235,.72);
+  box-shadow:0 0 0 4px rgba(37,99,235,.08);
+}
+.courseCardTop{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:start;
+}
+.courseCardTop p{
+  margin-top:5px;
+  color:var(--muted);
+  font-weight:820;
+  line-height:1.42;
+}
+.courseCardTop strong{
+  min-width:62px;
+  height:62px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#fff;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  font-size:1.05rem;
+}
+.courseCard .coursePreviewDots{
+  min-height:54px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:10px;
+  background:var(--soft-blue);
+}
+.courseCard .coursePreviewDots span{
+  width:14px;
+  height:14px;
+}
+.courseStats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.courseStats div{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:10px;
+  background:#fff;
+}
+.courseStats span{
+  display:block;
+  margin-bottom:4px;
+  color:var(--muted);
+  font-size:.74rem;
+  font-weight:900;
+}
+.courseStats b{
+  font-size:1rem;
 }
 .subjectProgressList,.subjectTable,.unitList,.presetRows,.cleanList,.ruleList,.quizQueue,.playerList,.activityList,.installRows,.shieldPresetRows{
   display:grid;
@@ -1025,10 +1152,10 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   .sideNav{
     grid-template-columns:repeat(4,minmax(0,1fr));
   }
-  .dashboardGrid,.mapPage,.subjectsPage,.buildPage,.quizPage,.profilePage,.publicPage,.shieldGrid,.shieldHero,.focusGrid,.focusHero,.tasksPage{
+  .dashboardGrid,.mapPage,.subjectsPage,.buildPage,.quizPage,.profilePage,.publicPage,.shieldGrid,.shieldHero,.focusGrid,.focusHero,.tasksPage,.coursesPage{
     grid-template-columns:1fr;
   }
-  .subjectList,.detailPanel{position:static}
+  .subjectList,.detailPanel,.activeCoursePanel{position:static}
   .widePanel{grid-column:auto}
   .unitDots{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -1044,7 +1171,7 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   .heroPanel,.shieldHero,.focusHero,.panel{padding:12px}
   .heroPanel h2{font-size:1.35rem}
   .progressOrb,.shieldScore,.focusDial{width:84px;height:84px}
-  .metricGrid,.rowStats,.detailRows,.roomStats,.shapePreview,.dotMeta,.actionRow,.unitDots,.settingsGrid,.segmented,.plannerSteps,.reminderForm{
+  .metricGrid,.rowStats,.detailRows,.roomStats,.shapePreview,.dotMeta,.actionRow,.unitDots,.settingsGrid,.segmented,.plannerSteps,.reminderForm,.courseStats{
     grid-template-columns:1fr;
   }
   .dotMap{width:960px;height:520px}

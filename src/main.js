@@ -8,12 +8,13 @@ const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const PUBLIC_PATH_CODE = "PUBLIC-JOURNEY-PATH";
 const colors = ["#2563eb", "#0f766e", "#7c3aed", "#d97706", "#db2777", "#16a34a", "#0891b2", "#dc2626"];
-const pages = ["dashboard", "focus", "tasks", "map", "subjects", "build", "shield", "quiz", "public", "profile"];
-const pageAliases = { overview: "dashboard", journey: "map", journeys: "build", blocks: "shield", path: "map", create: "build" };
+const pages = ["dashboard", "focus", "tasks", "courses", "map", "subjects", "build", "shield", "quiz", "public", "profile"];
+const pageAliases = { overview: "dashboard", journey: "map", journeys: "courses", courses: "courses", blocks: "shield", path: "map", create: "build" };
 const pageTitles = {
   dashboard: "Dashboard",
   focus: "Focus",
   tasks: "Tasks",
+  courses: "Courses",
   map: "Journey Map",
   subjects: "Subjects",
   build: "Build",
@@ -201,9 +202,10 @@ app.innerHTML = `
       <button type="button" data-page-link="dashboard"><span></span>Dashboard</button>
       <button type="button" data-page-link="focus"><span></span>Focus</button>
       <button type="button" data-page-link="tasks"><span></span>Tasks</button>
+      <button type="button" data-page-link="courses"><span></span>Courses</button>
       <button type="button" data-page-link="map"><span></span>Journey Map</button>
       <button type="button" data-page-link="subjects"><span></span>Subjects</button>
-      <button type="button" data-page-link="build"><span></span>Build</button>
+      <button type="button" data-page-link="build"><span></span>Create</button>
       <button type="button" data-page-link="shield"><span></span>Shield</button>
       <button type="button" data-page-link="quiz"><span></span>Quiz</button>
       <button type="button" data-page-link="public"><span></span>Public</button>
@@ -248,6 +250,20 @@ app.innerHTML = `
             <div><span>Total Goals</span><b id="totalGoals">0</b></div>
             <div><span>Subjects</span><b id="subjectCount">0</b></div>
             <div><span>Rank</span><b id="rankView">Rookie</b></div>
+          </section>
+
+          <section class="panel currentMapPanel">
+            <div class="panelHead">
+              <div><label>Active Course Map</label><h2 id="dashboardMapTitle">Current map</h2></div>
+              <button type="button" data-page-link="courses">Change</button>
+            </div>
+            <p id="dashboardMapGoal"></p>
+            <div class="dashboardMapPreview" id="dashboardMapPreview"></div>
+            <div class="rowStats" id="dashboardMapStats"></div>
+            <div class="actionRow">
+              <button type="button" data-page-link="map">Open Map</button>
+              <button type="button" data-page-link="courses">Courses</button>
+            </div>
           </section>
 
           <section class="panel currentPanel">
@@ -371,6 +387,28 @@ app.innerHTML = `
               <div><span></span><b>Focus</b><small>Run a protected session.</small></div>
               <div><span></span><b>Close</b><small>Check off and schedule the next nudge.</small></div>
             </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" data-page="courses">
+        <div class="coursesPage">
+          <section class="panel activeCoursePanel">
+            <div class="panelHead">
+              <div><label>Currently Used Map</label><h2 id="activeCourseTitle">Active course</h2></div>
+              <button type="button" data-page-link="map">Open Map</button>
+            </div>
+            <p id="activeCourseGoal"></p>
+            <div class="courseHeroPreview" id="activeCoursePreview"></div>
+            <div class="rowStats" id="activeCourseStats"></div>
+          </section>
+
+          <section class="panel coursePickerPanel">
+            <div class="panelHead">
+              <div><label>Course Switcher</label><h2>Choose one map</h2></div>
+              <button type="button" data-page-link="build">Create</button>
+            </div>
+            <div class="courseList" id="courseList"></div>
           </section>
         </div>
       </section>
@@ -1202,6 +1240,7 @@ function render(){
   renderDashboard();
   renderFocus();
   renderTasks();
+  renderCourses();
   renderMap();
   renderSubjects();
   renderBuild();
@@ -1250,6 +1289,16 @@ function renderDashboard(){
   $("totalGoals").textContent = contexts.length;
   $("subjectCount").textContent = journey.subjects.length;
   $("rankView").textContent = rankFor(player.xp);
+
+  $("dashboardMapTitle").textContent = journey.title;
+  $("dashboardMapGoal").textContent = journey.goal;
+  $("dashboardMapPreview").innerHTML = coursePreviewDots(journey, player, 18);
+  $("dashboardMapStats").innerHTML = detailRows([
+    ["Course", journey.theme],
+    ["Progress", `${progress}%`],
+    ["Subjects", journey.subjects.length],
+    ["Maps", state.journeys.length]
+  ]);
 
   if(current){
     $("currentGoalTitle").textContent = current.goal.title;
@@ -1387,6 +1436,81 @@ function renderTasks(){
   document.querySelectorAll("[data-task-remove]").forEach(button => button.onclick = () => removeTask(button.dataset.taskRemove));
   document.querySelectorAll("[data-reminder-toggle]").forEach(button => button.onclick = () => toggleReminder(button.dataset.reminderToggle));
   document.querySelectorAll("[data-reminder-remove]").forEach(button => button.onclick = () => removeReminder(button.dataset.reminderRemove));
+}
+
+function renderCourses(){
+  const player = me();
+  const active = activeJourney();
+  const activeStats = courseStats(active, player);
+
+  $("activeCourseTitle").textContent = active.title;
+  $("activeCourseGoal").textContent = active.goal;
+  $("activeCoursePreview").innerHTML = coursePreviewDots(active, player, 22);
+  $("activeCourseStats").innerHTML = detailRows([
+    ["Progress", `${activeStats.progress}%`],
+    ["Subjects", activeStats.subjects],
+    ["Units", activeStats.units],
+    ["Goals", activeStats.goals]
+  ]);
+
+  $("courseList").innerHTML = state.journeys.map(journey => {
+    const stats = courseStats(journey, player);
+    const isActive = journey.id === active.id;
+    return `
+      <article class="courseCard ${isActive ? "active" : ""}">
+        <div class="courseCardTop">
+          <div>
+            <label>${isActive ? "Active now" : escapeHTML(journey.theme)}</label>
+            <h2>${escapeHTML(journey.title)}</h2>
+            <p>${escapeHTML(journey.goal)}</p>
+          </div>
+          <strong>${stats.progress}%</strong>
+        </div>
+        <div class="coursePreviewDots">${coursePreviewDots(journey, player, 14)}</div>
+        <div class="courseStats">
+          ${detailRows([
+            ["Subjects", stats.subjects],
+            ["Units", stats.units],
+            ["Goals", stats.goals],
+            ["Cleared", stats.done]
+          ])}
+        </div>
+        <div class="actionRow">
+          <button type="button" data-activate-course="${escapeAttr(journey.id)}">${isActive ? "Current" : "Use Map"}</button>
+          <button type="button" data-open-course="${escapeAttr(journey.id)}">Open</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-activate-course]").forEach(button => {
+    button.onclick = () => activateJourney(button.dataset.activateCourse, "courses");
+  });
+  document.querySelectorAll("[data-open-course]").forEach(button => {
+    button.onclick = () => activateJourney(button.dataset.openCourse, "map");
+  });
+}
+
+function courseStats(journey, player = me()){
+  const contexts = allGoalContexts(journey);
+  const units = journey.subjects.reduce((sum, subject) => sum + subject.units.length, 0);
+  const done = contexts.filter(item => isDone(item.goal, player, journey.id)).length;
+  return {
+    subjects: journey.subjects.length,
+    units,
+    goals: contexts.length,
+    done,
+    progress: contexts.length ? Math.round(done / contexts.length * 100) : 0
+  };
+}
+
+function coursePreviewDots(journey, player = me(), maxDots = 18){
+  const contexts = allGoalContexts(journey);
+  if(!contexts.length) return `<span class="emptyDot"></span>`;
+  const shown = contexts.slice(0, maxDots).map(item => `
+    <span class="${isDone(item.goal, player, journey.id) ? "done" : ""} ${item.goal.kind === "quiz" ? "quiz" : ""}"></span>
+  `).join("");
+  return contexts.length > maxDots ? `${shown}<b>+${contexts.length - maxDots}</b>` : shown;
 }
 
 function renderMap(){
@@ -1909,16 +2033,26 @@ function addPresetJourney(templateId){
   const duplicate = state.journeys.some(journey => journey.id === template.id);
   const journey = normalizeJourney({ ...clone(template), id: duplicate ? uid("journey") : template.id, createdAt: Date.now() });
   state.journeys.push(journey);
+  addActivity(`added ${journey.title}`);
+  activateJourney(journey.id, "map");
+  message(`${journey.title} added and selected.`);
+  playSound("start");
+}
+
+function activateJourney(journeyId, destination = "map"){
+  const journey = state.journeys.find(item => item.id === journeyId);
+  if(!journey) return;
+  const changed = state.activeJourneyId !== journey.id;
   state.activeJourneyId = journey.id;
   selectedSubjectId = "";
   selectedUnitId = "";
   selectedGoalId = "";
   selectedQuizId = "";
   ensureSelection();
-  addActivity(`added ${journey.title}`);
-  setPage("map");
-  message(`${journey.title} added.`);
-  playSound("start");
+  if(changed) addActivity(`switched to ${journey.title}`);
+  setPage(destination);
+  message(`${journey.title} is the active map.`);
+  playSound(changed ? "start" : "tap");
   render();
   pushState();
 }
@@ -2006,18 +2140,10 @@ function createCustomJourney(){
     subjects
   });
   state.journeys.push(journey);
-  state.activeJourneyId = journey.id;
-  selectedSubjectId = "";
-  selectedUnitId = "";
-  selectedGoalId = "";
-  selectedQuizId = "";
-  ensureSelection();
   addActivity(`published ${journey.title}`);
-  setPage("map");
-  message("Journey published.");
+  activateJourney(journey.id, "map");
+  message("Journey published and selected.");
   playSound("complete");
-  render();
-  pushState();
 }
 
 function previewJourney(){
