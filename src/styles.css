@@ -571,7 +571,8 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
 .dotMapViewport{
   width:100%;
   overflow:auto;
-  padding:4px 0 10px;
+  padding:4px 0 12px;
+  scrollbar-width:thin;
 }
 .dotMap{
   position:relative;
@@ -581,15 +582,15 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   border-radius:var(--radius);
   overflow:hidden;
   background:
-    linear-gradient(180deg,rgba(255,255,255,.68),rgba(255,255,255,.94)),
-    linear-gradient(135deg,#d1fae5 0 26%,#dbeafe 26% 52%,#fef3c7 52% 76%,#fce7f3 76% 100%);
+    linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.96)),
+    linear-gradient(135deg,#e0f2fe 0 24%,#dcfce7 24% 48%,#fef3c7 48% 72%,#fce7f3 72% 100%);
 }
 .dotMap:before{
   content:"";
   position:absolute;
   inset:0;
-  background-image:radial-gradient(rgba(15,23,42,.12) 1px,transparent 1px);
-  background-size:26px 26px;
+  background-image:radial-gradient(rgba(15,23,42,.08) 1px,transparent 1px);
+  background-size:34px 34px;
   pointer-events:none;
 }
 #dotLines{
@@ -598,23 +599,79 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   width:100%;
   height:100%;
   pointer-events:none;
+  z-index:2;
 }
 .routeLine{
   fill:none;
-  stroke:rgba(15,23,42,.25);
-  stroke-width:6;
+  stroke:rgba(37,99,235,.28);
+  stroke-width:5;
   stroke-linecap:round;
-  stroke-dasharray:12 12;
+  stroke-dasharray:11 13;
 }
 .routeLine.done{
   stroke:rgba(22,163,74,.78);
   stroke-dasharray:0;
 }
+.transitionLine{
+  stroke:rgba(100,116,139,.22);
+  stroke-width:4;
+  stroke-dasharray:6 16;
+}
+.mapUnitBand{
+  position:absolute;
+  height:144px;
+  min-height:132px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:start;
+  gap:12px;
+  border:1px solid rgba(148,163,184,.62);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  color:var(--ink);
+  background:rgba(255,255,255,.7);
+  box-shadow:none;
+  text-align:left;
+  overflow:hidden;
+  z-index:1;
+}
+.mapUnitBand:hover{
+  filter:none;
+  transform:none;
+  background:rgba(255,255,255,.88);
+}
+.mapUnitBand.active{
+  border-color:rgba(37,99,235,.72);
+  box-shadow:0 0 0 4px rgba(37,99,235,.08);
+}
+.mapUnitBand>span{
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#fff;
+  background:var(--teal);
+  font-size:.78rem;
+  font-weight:1000;
+}
+.mapUnitBand small{
+  display:block;
+  max-width:620px;
+  color:var(--muted);
+  font-weight:830;
+  line-height:1.35;
+  margin-top:3px;
+}
+.mapUnitBand strong{
+  justify-self:end;
+  color:var(--blue);
+}
 .mapDot{
   position:absolute;
-  width:36px;
-  height:36px;
-  min-height:36px;
+  width:42px;
+  height:42px;
+  min-height:42px;
   padding:0;
   transform:translate(-50%,-50%);
   display:grid;
@@ -623,22 +680,42 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
   border-radius:50%;
   color:#fff;
   background:var(--gold);
-  box-shadow:0 10px 18px rgba(15,23,42,.18);
+  box-shadow:0 12px 20px rgba(15,23,42,.2);
   z-index:3;
 }
 .mapDot span{
-  font-size:.72rem;
+  font-size:.8rem;
   font-weight:1000;
 }
 .mapDot.quiz{background:var(--violet)}
 .mapDot.done{background:var(--green);color:#052e16}
 .mapDot.active{
-  width:48px;
-  height:48px;
+  width:54px;
+  height:54px;
   border-color:#fff;
   background:var(--pink);
   box-shadow:0 0 0 8px rgba(219,39,119,.14),0 16px 28px rgba(15,23,42,.22);
   z-index:4;
+}
+.mapDotName{
+  position:absolute;
+  width:138px;
+  transform:translateX(-50%);
+  color:#334155;
+  font-size:.72rem;
+  font-weight:900;
+  line-height:1.18;
+  text-align:center;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  pointer-events:none;
+  z-index:4;
+}
+.mapDotName.active{
+  color:#9d174d;
+  font-weight:1000;
 }
 .unitDots{
   display:grid;
@@ -971,10 +1048,10 @@ button:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
     grid-template-columns:1fr;
   }
   .dotMap{width:960px;height:520px}
-  .mapDot.active{width:44px;height:44px}
-  .progressRow,.tableRow,.presetRow,.quizRow,.subjectButton,.unitDotRow,.ruleRow,.taskRow,.reminderRow,.scheduleRow,.sessionRow{
+  .mapDot.active{width:50px;height:50px}
+  .progressRow,.tableRow,.presetRow,.quizRow,.subjectButton,.unitDotRow,.ruleRow,.taskRow,.reminderRow,.scheduleRow,.sessionRow,.mapUnitBand{
     grid-template-columns:auto minmax(0,1fr);
   }
   .taskRow>button:not(.taskCheck),.reminderRow>button:not(.reminderSwitch){grid-column:2}
-  .progressRow strong,.tableRow strong,.ruleRow strong,.scheduleRow strong,.sessionRow strong{justify-self:start}
+  .progressRow strong,.tableRow strong,.ruleRow strong,.scheduleRow strong,.sessionRow strong,.mapUnitBand strong{justify-self:start}
 }

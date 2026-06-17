@@ -1409,28 +1409,58 @@ function renderMap(){
     `;
   }).join("");
 
-  const points = contexts.map((context, index) => ({ ...context, point: mapPoint(context, index, contexts.length, subject.units.length) }));
+  const dimensions = mapDimensions(subject);
+  $("dotMap").style.width = `${dimensions.width}px`;
+  $("dotMap").style.height = `${dimensions.height}px`;
+  $("dotLines").setAttribute("viewBox", `0 0 ${dimensions.width} ${dimensions.height}`);
+
+  const points = contexts.map((context, index) => ({ ...context, routeIndex: index, point: mapPoint(context, dimensions) }));
   const lines = [];
-  for(let index = 0; index < points.length - 1; index++){
-    const a = svgPoint(points[index].point);
-    const b = svgPoint(points[index + 1].point);
-    const doneLine = isDone(points[index].goal, player, journey.id) && isDone(points[index + 1].goal, player, journey.id);
-    const curve = index % 2 ? -48 : 48;
-    lines.push(`<path class="routeLine ${doneLine ? "done" : ""}" d="M ${a.x} ${a.y} C ${a.x + 74} ${a.y + curve}, ${b.x - 74} ${b.y - curve}, ${b.x} ${b.y}" />`);
-  }
+  subject.units.forEach((unit, unitIndex) => {
+    const unitPoints = points.filter(point => point.unit.id === unit.id);
+    for(let index = 0; index < unitPoints.length - 1; index++){
+      const a = svgPoint(unitPoints[index].point);
+      const b = svgPoint(unitPoints[index + 1].point);
+      const doneLine = isDone(unitPoints[index].goal, player, journey.id) && isDone(unitPoints[index + 1].goal, player, journey.id);
+      const curve = index % 2 ? -32 : 32;
+      lines.push(`<path class="routeLine ${doneLine ? "done" : ""}" d="M ${a.x} ${a.y} C ${a.x + 70} ${a.y + curve}, ${b.x - 70} ${b.y - curve}, ${b.x} ${b.y}" />`);
+    }
+    const nextUnitFirst = points.find(point => point.unitIndex === unitIndex + 1 && point.goalIndex === 0);
+    if(unitPoints.length && nextUnitFirst){
+      const a = svgPoint(unitPoints[unitPoints.length - 1].point);
+      const b = svgPoint(nextUnitFirst.point);
+      lines.push(`<path class="routeLine transitionLine" d="M ${a.x} ${a.y} C ${a.x + 70} ${a.y + 76}, ${b.x - 70} ${b.y - 76}, ${b.x} ${b.y}" />`);
+    }
+  });
   $("dotLines").innerHTML = lines.join("");
-  $("dotNodes").innerHTML = points.map((context, index) => {
+  const unitBands = subject.units.map((unit, index) => {
+    const pct = percent(contextsForUnit(unit, journey), player, journey.id);
+    return `
+      <button type="button" class="mapUnitBand ${unit.id === selectedUnitId ? "active" : ""}"
+        data-unit="${escapeAttr(unit.id)}"
+        style="left:24px;top:${laneTop(index)}px;width:${dimensions.width - 48}px">
+        <span>${index + 1}</span>
+        <div><b>${escapeHTML(unit.title)}</b><small>${escapeHTML(unit.outcome)}</small></div>
+        <strong>${pct}%</strong>
+      </button>
+    `;
+  }).join("");
+  const pointNodes = points.map(context => {
     const done = isDone(context.goal, player, journey.id);
     const active = context.goal.id === selectedGoalId;
     return `
       <button type="button" class="mapDot ${done ? "done" : ""} ${active ? "active" : ""} ${context.goal.kind === "quiz" ? "quiz" : ""}"
         data-goal="${escapeAttr(context.goal.id)}"
         aria-label="${escapeAttr(context.goal.title)}"
-        style="left:${context.point.x}%;top:${context.point.y}%">
-        <span>${dotLabel(context, index)}</span>
+        style="left:${context.point.x}px;top:${context.point.y}px">
+        <span>${dotLabel(context)}</span>
       </button>
+      <div class="mapDotName ${active ? "active" : ""}" style="left:${context.point.x}px;top:${context.point.y + 34}px">
+        ${escapeHTML(context.goal.title)}
+      </div>
     `;
   }).join("");
+  $("dotNodes").innerHTML = unitBands + pointNodes;
 
   $("mapUnits").innerHTML = subject.units.map((unit, index) => {
     const pct = percent(contextsForUnit(unit, journey), player, journey.id);
@@ -1469,22 +1499,37 @@ function renderMap(){
   });
 }
 
-function mapPoint(context, index, total, unitCount){
-  const x = total <= 1 ? 52 : 8 + (index / (total - 1)) * 84;
-  const lane = 76 / Math.max(1, unitCount);
-  const baseY = 12 + context.unitIndex * lane + lane / 2;
-  const wobble = [0, 8, -7, 10, -4, 6, -9, 4];
-  return { x, y: Math.max(11, Math.min(88, baseY + wobble[index % wobble.length])) };
+function mapDimensions(subject){
+  const maxGoals = Math.max(1, ...subject.units.map(unit => unit.goals.length));
+  return {
+    width: Math.max(1040, 260 + maxGoals * 172),
+    height: Math.max(540, 108 + subject.units.length * 198)
+  };
+}
+
+function laneTop(unitIndex){
+  return 34 + unitIndex * 198;
+}
+
+function mapPoint(context, dimensions){
+  const goalCount = Math.max(1, context.unit.goals.length);
+  const left = 150;
+  const right = dimensions.width - 110;
+  const step = goalCount <= 1 ? 0 : (right - left) / (goalCount - 1);
+  const wobble = [0, -12, 13, -7, 11, -10, 6, -5];
+  return {
+    x: goalCount <= 1 ? Math.round((left + right) / 2) : Math.round(left + step * context.goalIndex),
+    y: Math.round(laneTop(context.unitIndex) + 72 + wobble[context.goalIndex % wobble.length])
+  };
 }
 
 function svgPoint(point){
-  return { x: Math.round(point.x / 100 * 1120), y: Math.round(point.y / 100 * 560) };
+  return { x: Math.round(point.x), y: Math.round(point.y) };
 }
 
-function dotLabel(context, index){
+function dotLabel(context){
   if(context.goal.kind === "quiz") return "?";
-  if(context.goalIndex === context.unit.goals.length - 1) return "B";
-  return String(index + 1);
+  return String(context.goalIndex + 1);
 }
 
 function renderSubjects(){
