@@ -1,37 +1,30 @@
-# NeuroQuest Focus Arcade
+# NeuroQuest Journey
 
-A Vercel + GitHub + Supabase multiplayer study-board game for gamified ADHD-friendly focus support.
+A public gamified journey-path app for Android APK sideload use and PC web use. Everyone can enter the same public path when Supabase is configured, while each player keeps their own progress through subtasks, quiz gates, focus blocks, and the final goal.
 
-## Added in this version
+## What It Does
 
-- Public server room: `PUBLIC-SERVER`
-- Separate app pages for Quest, Board, Deck, Lab, Squad, Rooms, and Profile
-- ADHD-friendly quest setup with quick starts, short sprints, reset cues, and visible rewards
-- Arcade Lab with experimental focus modes, loot chests, power-ups, boss HP, coins, and distraction parking
-- Optional sound effects for starts, wins, misses, loot, level-ups, and online room activity
-- Lobby browser for public rooms
-- Create public or private rooms
-- Player profile system
-- Profile fields:
-  - display name
-  - avatar
-  - target/goal
-  - bio
-- Multiplayer board sync
-- Shared quest deck
-- Realtime player presence
-- GitHub workflow build check
-- Vercel config
-- Supabase SQL schema
+- Public journey room: `PUBLIC-JOURNEY-PATH`
+- Android-friendly PWA shell and Capacitor config for APK wrapping
+- PC web deployment through Vercel
+- Preset journeys for study, project launch, and daily stabilization
+- Custom journey builder with journey name, goal end, duration, path style, subtasks, and quiz gate
+- Wonky tournament-style map visualization
+- Time cursor that moves across the path as the journey duration passes
+- Player-specific gate completion on a shared public journey
+- Quiz gates with answer checking
+- Public player list and activity feed
+- Optional sound effects
+- Offline-capable install metadata via service worker and web manifest
 
-## Run locally
+## Run Locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Supabase setup
+## Supabase Setup
 
 1. Create a Supabase project.
 2. Open **SQL Editor**.
@@ -41,7 +34,7 @@ npm run dev
 supabase_schema.sql
 ```
 
-4. In Supabase, go to **Project Settings → API**.
+4. In Supabase, go to **Project Settings -> API**.
 5. Copy:
    - Project URL
    - anon public key
@@ -57,8 +50,6 @@ cp .env.example .env
 ```env
 VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-VITE_GITHUB_REPO_URL=https://github.com/YOUR_USERNAME/neuroquest-focus-arcade
-VITE_VERCEL_PROJECT_URL=https://YOUR_PROJECT.vercel.app
 ```
 
 8. Restart:
@@ -67,36 +58,27 @@ VITE_VERCEL_PROJECT_URL=https://YOUR_PROJECT.vercel.app
 npm run dev
 ```
 
-## GitHub repo setup
+## Vercel Web
 
-```bash
-git init
-git add .
-git commit -m "Initial NeuroQuest focus arcade"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/neuroquest-focus-arcade.git
-git push -u origin main
-```
+The included `vercel.json` is configured for Vite:
 
-## Vercel integration
+- build command: `npm run build`
+- output directory: `dist`
+- SPA rewrite to `index.html`
 
-1. Push the repo to GitHub.
-2. Open Vercel.
-3. Import the GitHub repository.
-4. Add environment variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_GITHUB_REPO_URL`
-   - `VITE_VERCEL_PROJECT_URL`
-5. Deploy.
+Add the Supabase environment variables in Vercel for live public sync.
 
-## Public lobby use
+## Android APK Sideload Target
 
-- Click **Join Public Study Server** to enter the global public room.
-- Use **Create Room** to create a public/private study room.
-- Public rooms appear in the lobby.
-- Same room code = same board and shared quest deck.
+This repo includes:
 
-## Security note
+- `public/manifest.webmanifest`
+- `public/sw.js`
+- `public/icon.svg`
+- `capacitor.config.json`
 
-The schema uses open RLS policies for easy public-room testing. For production, add authentication and stricter room ownership policies.
+To create a sideloadable APK locally, install Capacitor tooling in your Android build environment, build the web app, add Android, then build the APK from Android Studio or Gradle. This is meant for direct APK distribution, not Play Store/App Store distribution.
+
+## Security Note
+
+The schema uses open RLS policies for public-room testing. For production, add authentication, moderation, and stricter write rules before letting strangers publish shared public paths.

@@ -1,0 +1,19 @@
+{
+  "name": "NeuroQuest Journey",
+  "short_name": "NeuroQuest",
+  "description": "A public gamified journey path for Android APK and PC web users.",
+  "start_url": "/#path",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#14b8a6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
