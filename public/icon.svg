@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#172033"/>
-  <path d="M92 332c58-124 134-186 228-186 45 0 81 15 108 45" fill="none" stroke="#14b8a6" stroke-width="38" stroke-linecap="round"/>
-  <path d="M106 348c77 2 132-22 165-72 27-42 64-61 111-58" fill="none" stroke="#3b82f6" stroke-width="34" stroke-linecap="round"/>
-  <circle cx="113" cy="340" r="36" fill="#f59e0b"/>
-  <circle cx="256" cy="250" r="38" fill="#ffffff"/>
-  <circle cx="405" cy="218" r="36" fill="#8b5cf6"/>
-  <text x="256" y="408" text-anchor="middle" font-family="Arial, sans-serif" font-size="86" font-weight="900" fill="#ffffff">NQ</text>
-</svg>
