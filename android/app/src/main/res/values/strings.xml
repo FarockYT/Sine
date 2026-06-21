@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ReMind Blocks</string>
-    <string name="title_activity_main">ReMind Blocks</string>
+    <string name="app_name">Sine Inverse</string>
+    <string name="title_activity_main">Sine Inverse</string>
     <string name="package_name">com.neuroquest.remindblocks</string>
     <string name="custom_url_scheme">com.neuroquest.remindblocks</string>
-    <string name="focus_blocker_service_description">ReMind Blocks Focus Mode blocks selected apps during active sessions.</string>
+    <string name="focus_blocker_service_description">Sine Inverse keeps selected app blocks, schedules, and limits active in the background.</string>
 </resources>

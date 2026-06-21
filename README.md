@@ -1,6 +1,6 @@
-# ReMind Blocks
+# Sine Inverse
 
-AI-assisted reminder blocks, focus shield, timer, and daily planning in one cross-platform app.
+AI-assisted reminder blocks, focus shield, timer, app limits, and daily planning in one cross-platform app.
 
 ## Run The Website
 
@@ -36,16 +36,16 @@ On this machine, the `apk:debug` script also falls back to the local Java 21 ins
 Blocking has two layers:
 
 - Web/PWA: locked targets, session timer, interruption log, and stats work inside the app.
-- Android APK: selected app package names, focus schedules, and daily app limits are synced to a native Accessibility service. When a rule is active, opening a locked or over-limit app redirects straight back to ReMind Blocks.
+- Android APK: selected app package names, focus schedules, and daily app limits are synced to a native Accessibility service. When a rule is active, opening a locked or over-limit app redirects straight back to Sine Inverse.
 
 To enable native app blocking, screen-time history, and app limits on Android:
 
 1. Install `android/app/build/outputs/apk/debug/app-debug.apk`.
-2. Open ReMind Blocks, go to `Shield` or `Focus`, and tap `Accessibility`.
-3. Enable `ReMind Blocks Focus Mode` in Android Accessibility settings.
-4. Go to `Settings` or `Shield`, tap `Usage access`, and allow ReMind Blocks so Android can report app foreground time.
+2. Open Sine Inverse, go to `Shield` or `Focus`, and tap `Accessibility`.
+3. Enable `Sine Inverse` in Android Accessibility settings.
+4. Go to `Settings` or `Shield`, tap `Usage access`, and allow Sine Inverse so Android can report app foreground time.
 5. Add apps like `Instagram` or exact package names like `com.instagram.android`.
-6. Turn `Shield` on, create scheduled focus windows, or set a daily app limit such as `2h`. Opening a locked or over-limit app sends you back to ReMind Blocks.
+6. Turn `Shield` on, create scheduled focus windows, or set a daily app limit such as `2h`. Opening a locked or over-limit app sends you back to Sine Inverse.
 7. Start Focus Mode when you want a timed protected session on top of Shield.
 
 ## Product Features

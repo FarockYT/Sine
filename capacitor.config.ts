@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.neuroquest.remindblocks",
-  appName: "ReMind Blocks",
+  appName: "Sine Inverse",
   webDir: "dist",
   plugins: {
     LocalNotifications: {

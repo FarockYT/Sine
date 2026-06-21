@@ -22,6 +22,8 @@ public class FocusAccessibilityService extends AccessibilityService {
     private static final String CHANNEL_ID = "focus_blocks";
     private String lastBlockedPackage = "";
     private long lastBlockedAt = 0L;
+    private String lastWarnedPackage = "";
+    private long lastWarnedAt = 0L;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -60,6 +62,7 @@ public class FocusAccessibilityService extends AccessibilityService {
             target = findLimitTarget(prefs.getString(FocusBlockerPlugin.KEY_LIMITS, "[]"), packageName);
         }
         if (target == null) {
+            maybeShowLimitWarning(prefs.getString(FocusBlockerPlugin.KEY_LIMITS, "[]"), packageName, now);
             return;
         }
 
@@ -156,6 +159,40 @@ public class FocusAccessibilityService extends AccessibilityService {
         return null;
     }
 
+    private void maybeShowLimitWarning(String limitsJson, String packageName, long now) {
+        try {
+            JSONArray limits = new JSONArray(limitsJson);
+            for (int i = 0; i < limits.length(); i++) {
+                JSONObject limit = limits.getJSONObject(i);
+                if (!limit.optBoolean("enabled", false) || !packageName.equals(limit.optString("packageName"))) {
+                    continue;
+                }
+
+                int allowedMinutes = limit.optInt("minutes", 0);
+                if (allowedMinutes <= 0) {
+                    continue;
+                }
+
+                int warnAt = Math.max(50, Math.min(95, limit.optInt("warnAt", 85)));
+                int warningMinutes = Math.max(1, (int) Math.ceil(allowedMinutes * (warnAt / 100.0)));
+                int usedMinutes = getTodayUsageMinutes(packageName);
+                if (usedMinutes < warningMinutes || usedMinutes >= allowedMinutes) {
+                    continue;
+                }
+
+                if (packageName.equals(lastWarnedPackage) && now - lastWarnedAt < 900000L) {
+                    return;
+                }
+
+                lastWarnedPackage = packageName;
+                lastWarnedAt = now;
+                showLimitWarningNotification(limit.optString("label", packageName), usedMinutes, allowedMinutes);
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private int getTodayUsageMinutes(String packageName) {
         UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
         if (usageStatsManager == null) {
@@ -237,10 +274,10 @@ public class FocusAccessibilityService extends AccessibilityService {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "Focus blocks",
+                "Sine Inverse blocks",
                 NotificationManager.IMPORTANCE_DEFAULT
             );
-            channel.setDescription("Alerts when ReMind Blocks redirects locked apps.");
+            channel.setDescription("Alerts when Sine Inverse redirects locked apps.");
             manager.createNotificationChannel(channel);
         }
 
@@ -260,12 +297,55 @@ public class FocusAccessibilityService extends AccessibilityService {
         builder
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(target.label + " blocked")
-            .setContentText(target.reason + " is active. You're back in ReMind Blocks.")
+            .setContentText(target.reason + " is active. You're back in Sine Inverse.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true);
 
         try {
             manager.notify((int) (System.currentTimeMillis() % Integer.MAX_VALUE), builder.build());
+        } catch (SecurityException ignored) {
+            // Android 13+ may block notifications until the user grants permission.
+        }
+    }
+
+    private void showLimitWarningNotification(String label, int usedMinutes, int allowedMinutes) {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Sine Inverse blocks",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+            channel.setDescription("Alerts when Sine Inverse redirects locked apps and warns before limits.");
+            manager.createNotificationChannel(channel);
+        }
+
+        Intent openIntent = new Intent(this, MainActivity.class);
+        openIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this,
+            43,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            ? new Notification.Builder(this, CHANNEL_ID)
+            : new Notification.Builder(this);
+
+        builder
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(label + " limit reminder")
+            .setContentText("Used " + usedMinutes + "m of " + allowedMinutes + "m. Blocking starts soon.")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true);
+
+        try {
+            manager.notify((int) ((System.currentTimeMillis() + 17L) % Integer.MAX_VALUE), builder.build());
         } catch (SecurityException ignored) {
             // Android 13+ may block notifications until the user grants permission.
         }

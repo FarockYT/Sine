@@ -120,6 +120,8 @@ type ProfileSettings = {
   name: string;
   role: string;
   avatar: string;
+  accountEmail: string;
+  accountConnected: boolean;
   dailyFocusGoal: number;
   weeklyFocusGoal: number;
   theme: ThemeMode;
@@ -288,14 +290,29 @@ const popularAppTargets: Array<{
   supportsPiP?: boolean;
 }> = [
   { label: "Instagram", packageName: "com.instagram.android", category: "Social" },
+  { label: "Threads", packageName: "com.instagram.barcelona", category: "Social" },
   { label: "YouTube", packageName: "com.google.android.youtube", category: "Video", supportsPiP: true },
   { label: "TikTok", packageName: "com.zhiliaoapp.musically", category: "Social" },
   { label: "Snapchat", packageName: "com.snapchat.android", category: "Social" },
   { label: "Facebook", packageName: "com.facebook.katana", category: "Social" },
   { label: "X", packageName: "com.twitter.android", category: "Social" },
   { label: "Reddit", packageName: "com.reddit.frontpage", category: "Social" },
+  { label: "Pinterest", packageName: "com.pinterest", category: "Social" },
+  { label: "Discord", packageName: "com.discord", category: "Messaging" },
+  { label: "Telegram", packageName: "org.telegram.messenger", category: "Messaging" },
+  { label: "WhatsApp", packageName: "com.whatsapp", category: "Messaging" },
+  { label: "ShareChat", packageName: "in.mohalla.sharechat", category: "Shorts" },
+  { label: "Moj", packageName: "in.mohalla.video", category: "Shorts" },
+  { label: "Josh", packageName: "com.eterno.shortvideos", category: "Shorts" },
+  { label: "Chingari", packageName: "io.chingari.app", category: "Shorts" },
   { label: "Netflix", packageName: "com.netflix.mediaclient", category: "Video", supportsPiP: true },
+  { label: "Prime Video", packageName: "com.amazon.avod.thirdpartyclient", category: "Video", supportsPiP: true },
+  { label: "Hotstar", packageName: "in.startv.hotstar", category: "Video", supportsPiP: true },
+  { label: "Twitch", packageName: "tv.twitch.android.app", category: "Video", supportsPiP: true },
   { label: "Chrome", packageName: "com.android.chrome", category: "Browser", supportsPiP: true },
+  { label: "Firefox", packageName: "org.mozilla.firefox", category: "Browser" },
+  { label: "Brave", packageName: "com.brave.browser", category: "Browser" },
+  { label: "Edge", packageName: "com.microsoft.emmx", category: "Browser" },
   { label: "Roblox", packageName: "com.roblox.client", category: "Games" }
 ];
 
@@ -312,9 +329,14 @@ const appBundles: Array<{
     packages: [
       "com.google.android.youtube",
       "com.instagram.android",
+      "com.instagram.barcelona",
       "com.zhiliaoapp.musically",
       "com.snapchat.android",
-      "com.facebook.katana"
+      "com.facebook.katana",
+      "in.mohalla.sharechat",
+      "in.mohalla.video",
+      "com.eterno.shortvideos",
+      "io.chingari.app"
     ]
   },
   {
@@ -323,17 +345,27 @@ const appBundles: Array<{
     detail: "Feeds, chats, and comment loops",
     packages: [
       "com.instagram.android",
+      "com.instagram.barcelona",
       "com.facebook.katana",
       "com.twitter.android",
       "com.reddit.frontpage",
-      "com.snapchat.android"
+      "com.snapchat.android",
+      "com.pinterest",
+      "com.discord",
+      "org.telegram.messenger"
     ]
   },
   {
     id: "video",
     label: "Video Binge",
     detail: "Streaming and endless watch apps",
-    packages: ["com.google.android.youtube", "com.netflix.mediaclient"]
+    packages: [
+      "com.google.android.youtube",
+      "com.netflix.mediaclient",
+      "com.amazon.avod.thirdpartyclient",
+      "in.startv.hotstar",
+      "tv.twitch.android.app"
+    ]
   },
   {
     id: "games",
@@ -345,13 +377,78 @@ const appBundles: Array<{
     id: "browser",
     label: "Browser Detours",
     detail: "Chrome and web rabbit holes",
-    packages: ["com.android.chrome"]
+    packages: ["com.android.chrome", "org.mozilla.firefox", "com.brave.browser", "com.microsoft.emmx"]
   },
   {
     id: "pip",
     label: "Picture-in-picture",
     detail: "Floating video apps",
-    packages: ["com.google.android.youtube", "com.netflix.mediaclient", "com.android.chrome"]
+    packages: [
+      "com.google.android.youtube",
+      "com.netflix.mediaclient",
+      "com.amazon.avod.thirdpartyclient",
+      "in.startv.hotstar",
+      "tv.twitch.android.app",
+      "com.android.chrome"
+    ]
+  }
+];
+
+const shortBlockPresets: Array<{
+  id: string;
+  label: string;
+  detail: string;
+  minutes: number;
+  packages: string[];
+  sites: string[];
+}> = [
+  {
+    id: "shorts-reset",
+    label: "30m Shorts reset",
+    detail: "Reels, Shorts, TikTok, Moj, Josh",
+    minutes: 30,
+    packages: [
+      "com.google.android.youtube",
+      "com.instagram.android",
+      "com.instagram.barcelona",
+      "com.zhiliaoapp.musically",
+      "in.mohalla.video",
+      "com.eterno.shortvideos",
+      "io.chingari.app"
+    ],
+    sites: ["youtube.com/shorts", "instagram.com/reels", "tiktok.com"]
+  },
+  {
+    id: "social-reset",
+    label: "1h Social reset",
+    detail: "Feeds, comments, DMs, communities",
+    minutes: 60,
+    packages: [
+      "com.instagram.android",
+      "com.instagram.barcelona",
+      "com.facebook.katana",
+      "com.twitter.android",
+      "com.reddit.frontpage",
+      "com.snapchat.android",
+      "com.pinterest"
+    ],
+    sites: ["instagram.com", "reddit.com", "x.com", "facebook.com"]
+  },
+  {
+    id: "night-guard",
+    label: "Night guard",
+    detail: "Video, browser, PiP traps",
+    minutes: 180,
+    packages: [
+      "com.google.android.youtube",
+      "com.netflix.mediaclient",
+      "com.amazon.avod.thirdpartyclient",
+      "in.startv.hotstar",
+      "tv.twitch.android.app",
+      "com.android.chrome",
+      "org.mozilla.firefox"
+    ],
+    sites: ["youtube.com", "netflix.com", "twitch.tv"]
   }
 ];
 
@@ -385,7 +482,7 @@ const dayLabels: Record<DayKey, string> = {
   7: "Sun"
 };
 
-const appCategoryOptions = ["All", "Social", "Video", "Games", "Browser", "Productivity", "Installed", "PiP"];
+const appCategoryOptions = ["All", "Shorts", "Social", "Video", "Messaging", "Games", "Browser", "Productivity", "Installed", "PiP"];
 
 const nowPlus = (minutes: number) => {
   const date = new Date();
@@ -468,6 +565,8 @@ const seedProfile = (): ProfileSettings => ({
   name: "Sugan",
   role: "Deep work builder",
   avatar: "S",
+  accountEmail: "",
+  accountConnected: false,
   dailyFocusGoal: 120,
   weeklyFocusGoal: 720,
   theme: "sunrise",
@@ -641,10 +740,11 @@ function formatScheduleDays(days: DayKey[]) {
 
 function guessAppCategory(label: string, packageName = "") {
   const value = `${label} ${packageName}`.toLowerCase();
-  if (/(instagram|facebook|snap|twitter|tiktok|reddit|discord|telegram|whatsapp)/.test(value)) return "Social";
+  if (/(moj|josh|chingari|sharechat|shorts|reels|takatak)/.test(value)) return "Shorts";
+  if (/(instagram|facebook|snap|twitter|tiktok|reddit|discord|telegram|whatsapp|threads|pinterest)/.test(value)) return "Social";
   if (/(youtube|netflix|video|prime|hotstar|reels|shorts)/.test(value)) return "Video";
   if (/(game|roblox|minecraft|pubg|freefire|play)/.test(value)) return "Games";
-  if (/(chrome|browser|firefox|edge)/.test(value)) return "Browser";
+  if (/(chrome|browser|firefox|edge|brave)/.test(value)) return "Browser";
   if (/(docs|notion|calendar|mail|classroom|drive|office)/.test(value)) return "Productivity";
   return "Installed";
 }
@@ -841,6 +941,8 @@ function App() {
   const [profile, setProfile] = useState<ProfileSettings>(() =>
     readJson(storageKeys.profile, seedProfile())
   );
+  const [launching, setLaunching] = useState(true);
+  const [launchClosing, setLaunchClosing] = useState(false);
   const [shieldEnabled, setShieldEnabled] = useState(() =>
     readJson(storageKeys.shieldEnabled, true)
   );
@@ -870,6 +972,7 @@ function App() {
   const [targetText, setTargetText] = useState("");
   const [targetPackageText, setTargetPackageText] = useState("");
   const [targetKind, setTargetKind] = useState<"app" | "site">("app");
+  const [websiteText, setWebsiteText] = useState("");
   const [focusBlockId, setFocusBlockId] = useState("");
   const [scheduleDraft, setScheduleDraft] = useState<{
     title: string;
@@ -907,6 +1010,11 @@ function App() {
     (target): target is ShieldTarget & { packageName: string } =>
       target.kind === "app" && Boolean(target.packageName)
   );
+  const websiteTargets = targets.filter(
+    (target): target is ShieldTarget & { url: string } =>
+      target.kind === "site" && Boolean(target.url)
+  );
+  const lockedWebsiteTargets = websiteTargets.filter((target) => target.locked);
   const activeSchedule = schedules.find((schedule) => schedule.enabled && isTimeWindowActive(schedule.startTime, schedule.endTime, schedule.days));
   const enabledAppLimits = appLimits.filter((limit) => limit.enabled);
   const appLimitMap = enabledAppLimits.reduce<Record<string, AppLimit>>((map, limit) => {
@@ -1155,6 +1263,19 @@ function App() {
   useEffect(() => {
     localStorage.setItem(storageKeys.focusSession, JSON.stringify(focusSession));
   }, [focusSession]);
+
+  useEffect(() => {
+    const closeTimer = window.setTimeout(() => setLaunchClosing(true), 2300);
+    const launchTimer = window.setTimeout(() => setLaunching(false), 2850);
+    return () => {
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(launchTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: profile.reduceMotion ? "auto" : "smooth" });
+  }, [activeTab, profile.reduceMotion]);
 
   useEffect(() => {
     if (!focusSession?.active) return;
@@ -1425,6 +1546,25 @@ function App() {
     addFocusLog("Schedule alerts armed", `${schedules.filter((schedule) => schedule.enabled).length} focus windows`, "mint");
   };
 
+  const armLimitReminders = async () => {
+    if (!enabledAppLimits.length) {
+      addFocusLog("No active timers", "Turn on a daily app limit first.", "gold");
+      return;
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      await LocalNotifications.requestPermissions();
+    } else if ("Notification" in window && Notification.permission !== "granted") {
+      await Notification.requestPermission();
+    }
+
+    addFocusLog(
+      "Limit reminders armed",
+      `${enabledAppLimits.length} timers warn before blocking.`,
+      "mint"
+    );
+  };
+
   const addBlock = (sourceText = quickText, sourceType = manualType) => {
     const text = sourceText.trim();
     if (!text) return;
@@ -1532,6 +1672,36 @@ function App() {
     setTargetPackageText("");
   };
 
+  const addWebsiteTarget = (value = websiteText, options: { log?: boolean } = {}) => {
+    const draft = getTargetDraft(value, "site");
+    if (!draft.label || draft.kind !== "site") return;
+
+    setTargets((current) => {
+      const exists = current.some((target) =>
+        target.kind === "site" &&
+        (target.url === draft.url || target.label.toLowerCase() === draft.label.toLowerCase())
+      );
+
+      if (exists) {
+        return current.map((target) =>
+          target.kind === "site" &&
+          (target.url === draft.url || target.label.toLowerCase() === draft.label.toLowerCase())
+            ? { ...target, locked: true }
+            : target
+        );
+      }
+
+      return [{ id: createId(), locked: true, ...draft }, ...current];
+    });
+
+    setWebsiteText("");
+    setTargetText("");
+    setTargetKind("site");
+    if (options.log !== false) {
+      addFocusLog("Website blocked", draft.label, "mint");
+    }
+  };
+
   const addInstalledAppTarget = (app: InstalledApp) => {
     setTargets((current) => {
       const exists = current.some((target) => target.packageName === app.packageName);
@@ -1626,6 +1796,27 @@ function App() {
     });
 
     return nextTargets;
+  };
+
+  const applyShortBlockPreset = (preset: (typeof shortBlockPresets)[number]) => {
+    const appPresets = popularAppTargets.filter((target) => preset.packages.includes(target.packageName));
+    lockPresetTargets(appPresets);
+    preset.sites.forEach((site) => addWebsiteTarget(site, { log: false }));
+    setShieldEnabled(true);
+
+    const releaseBlock: ReminderBlock = {
+      id: createId(),
+      title: `${preset.label} check-in`,
+      detail: `${preset.detail}. Review the block before reopening anything.`,
+      type: "shield",
+      dueAt: nowPlus(preset.minutes),
+      minutes: preset.minutes,
+      completed: false,
+      intensity: 86
+    };
+    setBlocks((current) => [releaseBlock, ...current]);
+    void scheduleBlockNotification(releaseBlock);
+    addFocusLog("Short block active", `${preset.label} for ${formatMinutes(preset.minutes)}`, "mint");
   };
 
   const openAppPicker = () => {
@@ -2034,13 +2225,29 @@ function App() {
 
   return (
     <main className={`app-shell ${sessionActive ? "focus-live" : ""} ${profile.compactMode ? "compact" : ""}`}>
+      {launching && (
+        <section className={`launch-screen ${launchClosing ? "is-hiding" : ""}`} aria-label="Sine Inverse loading">
+          <img src="/app-icon.svg" alt="" />
+          <div>
+            <p className="eyebrow">Sine Inverse</p>
+            <h2>Reverse the drift.</h2>
+            <span>Loading your guardrails</span>
+          </div>
+          <div className="launch-steps" aria-hidden="true">
+            <span>Shield</span>
+            <span>Timers</span>
+            <span>AI</span>
+          </div>
+          <i aria-hidden="true" />
+        </section>
+      )}
       <aside className="sidebar">
         <div className="brand-lockup">
           <img src="/app-icon.svg" alt="" className="brand-mark" />
           <div>
-            <p className="eyebrow">ReMind</p>
+            <p className="eyebrow">Sine Inverse</p>
             <h1>
-              Blocks
+              Guard
               <span className="brand-version">V1</span>
             </h1>
           </div>
@@ -2079,15 +2286,18 @@ function App() {
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">
-              {new Intl.DateTimeFormat(undefined, {
-                weekday: "long",
-                month: "short",
-                day: "numeric"
-              }).format(new Date())}
-            </p>
-            <h2>{sessionActive ? "Focus Mode" : nextBlock ? nextBlock.title : "All clear"}</h2>
+          <div className="topbar-title-row">
+            <img src="/app-icon.svg" alt="" className="topbar-mark" />
+            <div>
+              <p className="eyebrow">
+                {new Intl.DateTimeFormat(undefined, {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric"
+                }).format(new Date())}
+              </p>
+              <h2>{sessionActive ? "Focus Mode" : nextBlock ? nextBlock.title : "All clear"}</h2>
+            </div>
           </div>
           <div className="topbar-actions">
             <span className="release-pill">
@@ -2126,13 +2336,30 @@ function App() {
           </div>
         </header>
 
+        <nav className="quick-tab-strip" aria-label="Quick tab switcher">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={activeTab === tab.id ? "is-active" : ""}
+                onClick={() => setActiveTab(tab.id)}
+                type="button"
+              >
+                <Icon size={16} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
         <div className="content-grid">
           {activeTab === "today" && (
             <>
               <section className="hero-panel">
                 <div className="hero-copy">
-                  <p className="eyebrow">AI day map</p>
-                  <h2>Reminder blocks that defend your attention.</h2>
+                  <p className="eyebrow">Inverse focus map</p>
+                  <h2>Reverse the drift and rebuild the right life.</h2>
                   <div className="hero-status-grid" aria-label="Focus readiness">
                     <span>
                       <strong>{focusScore}</strong>
@@ -2171,6 +2398,37 @@ function App() {
                   </div>
                 </div>
                 <img src="/assets/ai-companion.png" alt="" className="hero-art" />
+              </section>
+
+              <section className="mobile-command-panel" aria-label="Fast actions">
+                <button type="button" onClick={() => startFocusSession({ mode: "study", minutes: 35, title: "Quick focus started" })}>
+                  <CirclePlay size={20} />
+                  <span>
+                    <strong>Start focus</strong>
+                    <small>35m protected</small>
+                  </span>
+                </button>
+                <button type="button" onClick={() => applyShortBlockPreset(shortBlockPresets[0])}>
+                  <Ban size={20} />
+                  <span>
+                    <strong>Block shorts</strong>
+                    <small>30m reset</small>
+                  </span>
+                </button>
+                <button type="button" onClick={openAppPicker}>
+                  <AppWindow size={20} />
+                  <span>
+                    <strong>Apps</strong>
+                    <small>{lockedTargets} blocked</small>
+                  </span>
+                </button>
+                <button type="button" onClick={() => setActiveTab("insights")}>
+                  <BarChart3 size={20} />
+                  <span>
+                    <strong>Stats</strong>
+                    <small>{weeklyProductivity}% productive</small>
+                  </span>
+                </button>
               </section>
 
               <section className="flow-panel">
@@ -2563,6 +2821,85 @@ function App() {
                 </article>
               </section>
 
+              <section className="short-block-panel">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Fast blocks</p>
+                    <h3>One-tap protection</h3>
+                  </div>
+                  <Zap size={22} />
+                </div>
+                <div className="short-block-grid">
+                  {shortBlockPresets.map((preset) => (
+                    <button key={preset.id} className="short-block-card" type="button" onClick={() => applyShortBlockPreset(preset)}>
+                      <span>{preset.minutes}m</span>
+                      <strong>{preset.label}</strong>
+                      <small>{preset.detail}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="website-panel">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Website blocking</p>
+                    <h3>{lockedWebsiteTargets.length} sites blocked</h3>
+                  </div>
+                  <Globe2 size={22} />
+                </div>
+                <div className="website-entry">
+                  <label className="search-row">
+                    <Globe2 size={18} />
+                    <input
+                      value={websiteText}
+                      onChange={(event) => setWebsiteText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") addWebsiteTarget();
+                      }}
+                      placeholder="youtube.com, instagram.com/reels, reddit.com"
+                    />
+                  </label>
+                  <button className="action-button" type="button" onClick={() => addWebsiteTarget()}>
+                    <Plus size={18} />
+                    <span>Add site</span>
+                  </button>
+                </div>
+                <div className="website-preset-row">
+                  {["youtube.com/shorts", "instagram.com/reels", "reddit.com", "x.com", "tiktok.com"].map((site) => (
+                    <button className="pill-toggle" type="button" key={site} onClick={() => addWebsiteTarget(site)}>
+                      {site}
+                    </button>
+                  ))}
+                </div>
+                <div className="focus-target-grid compact-target-grid">
+                  {websiteTargets.length ? (
+                    websiteTargets.map((target) => (
+                      <TargetCard
+                        key={target.id}
+                        target={target}
+                        sessionActive={blockerActive}
+                        onAttempt={() => handleTargetAttempt(target)}
+                        onToggle={() =>
+                          setTargets((current) =>
+                            current.map((item) =>
+                              item.id === target.id ? { ...item, locked: !item.locked } : item
+                            )
+                          )
+                        }
+                        onDelete={() => setTargets((current) => current.filter((item) => item.id !== target.id))}
+                      />
+                    ))
+                  ) : (
+                    <article className="empty-state-card">
+                      <Globe2 size={19} />
+                      <strong>No websites yet</strong>
+                      <span>Add a site or use a preset above.</span>
+                    </article>
+                  )}
+                </div>
+              </section>
+
               <section className="blocked-apps-panel">
                 <div className="section-heading">
                   <div>
@@ -2603,17 +2940,25 @@ function App() {
                     <p className="eyebrow">Usage timer</p>
                     <h3>Daily app limits</h3>
                   </div>
-                  <button className="action-button" type="button" onClick={openUsageSettings}>
-                    <History size={18} />
-                    <span>Usage access</span>
-                  </button>
+                  <div className="section-actions">
+                    <button className="icon-button" type="button" onClick={armLimitReminders} aria-label="Arm limit reminders" title="Arm limit reminders">
+                      <BellRing size={19} />
+                    </button>
+                    <button className="action-button" type="button" onClick={openUsageSettings}>
+                      <History size={18} />
+                      <span>Usage access</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="limit-grid">
                   {appTargets.map((target) => {
                     const limit = appLimits.find((item) => item.packageName === target.packageName);
                     const usage = usageStats.find((item) => item.packageName === target.packageName);
                     const minutes = limit?.minutes ?? 120;
+                    const warnAt = limit?.warnAt ?? 85;
+                    const warnMinutes = Math.max(1, Math.round((minutes * warnAt) / 100));
                     const progress = Math.min(100, Math.round(((usage?.minutes ?? 0) / Math.max(minutes, 1)) * 100));
+                    const reminderActive = Boolean(limit?.enabled && usage && usage.minutes >= warnMinutes && usage.minutes < minutes);
                     return (
                       <article className={`limit-card ${usage?.overLimit ? "is-over" : ""}`} key={target.id}>
                         <div className="limit-head">
@@ -2640,10 +2985,22 @@ function App() {
                             onChange={(event) => upsertAppLimit(target, { minutes: Number(event.target.value), enabled: true })}
                           />
                         </label>
+                        <label className="limit-slider compact">
+                          <span>Warn at {warnAt}% · {formatMinutes(warnMinutes)}</span>
+                          <input
+                            type="range"
+                            min="50"
+                            max="95"
+                            step="5"
+                            value={warnAt}
+                            onChange={(event) => upsertAppLimit(target, { warnAt: Number(event.target.value), enabled: true })}
+                          />
+                        </label>
                         <div className="goal-track">
                           <span style={{ width: `${progress}%` }} />
                         </div>
                         <div className="limit-actions">
+                          {reminderActive && <span className="status-pill warn">Reminder soon</span>}
                           <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 120, enabled: true })}>
                             2h
                           </button>
@@ -2933,6 +3290,33 @@ function App() {
                       />
                     </label>
                   </div>
+                  <div className="account-connect-row">
+                    <div>
+                      <User size={19} />
+                      <span>
+                        <strong>{profile.accountConnected ? "Profile connected" : "Local profile"}</strong>
+                        <small>{profile.accountConnected ? profile.accountEmail || "Signed in" : "Connect for sync-ready settings"}</small>
+                      </span>
+                    </div>
+                    <input
+                      value={profile.accountEmail ?? ""}
+                      onChange={(event) => setProfile((current) => ({ ...current, accountEmail: event.target.value }))}
+                      placeholder="name@email.com"
+                    />
+                    <button
+                      className={`pill-toggle ${profile.accountConnected ? "locked" : ""}`}
+                      type="button"
+                      onClick={() =>
+                        setProfile((current) => ({
+                          ...current,
+                          accountConnected: !current.accountConnected,
+                          accountEmail: current.accountEmail || "focus@sineinverse.local"
+                        }))
+                      }
+                    >
+                      {profile.accountConnected ? "Connected" : "Connect"}
+                    </button>
+                  </div>
                 </div>
                 <div className="settings-status-grid">
                   <article>
@@ -2949,6 +3333,11 @@ function App() {
                     <Palette size={18} />
                     <strong>{themeOptions.find((theme) => theme.id === profile.theme)?.label ?? "Theme"}</strong>
                     <span>theme</span>
+                  </article>
+                  <article>
+                    <User size={18} />
+                    <strong>{profile.accountConnected ? "Connected" : "Local"}</strong>
+                    <span>account</span>
                   </article>
                 </div>
               </section>

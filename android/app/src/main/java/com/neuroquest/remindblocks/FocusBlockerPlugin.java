@@ -70,6 +70,8 @@ public class FocusBlockerPlugin extends Plugin {
             .putString(KEY_LIMITS, limits)
             .apply();
 
+        syncBackgroundGuard(enabled || countTargets(schedules) > 0 || countTargets(limits) > 0);
+
         JSObject response = new JSObject();
         response.put("enabled", enabled);
         response.put("count", countTargets(targets));
@@ -230,6 +232,19 @@ public class FocusBlockerPlugin extends Plugin {
         } catch (Exception ignored) {
             return 0;
         }
+    }
+
+    private void syncBackgroundGuard(boolean shouldRun) {
+        Intent intent = new Intent(getContext(), FocusGuardService.class);
+        if (shouldRun) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(intent);
+            } else {
+                getContext().startService(intent);
+            }
+            return;
+        }
+        getContext().stopService(intent);
     }
 
     private Map<String, LimitConfig> parseLimits(String limitsJson) {
