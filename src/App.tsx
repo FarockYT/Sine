@@ -7,12 +7,14 @@ import {
   BellRing,
   BrainCircuit,
   CalendarDays,
+  CalendarPlus,
   Check,
   CheckCircle2,
   ChevronRight,
   CirclePause,
   CirclePlay,
   Clock3,
+  Copy,
   Filter,
   Flame,
   Focus,
@@ -22,6 +24,9 @@ import {
   Hourglass,
   Layers3,
   LockKeyhole,
+  MessageSquareText,
+  Mic,
+  MicOff,
   Moon,
   Palette,
   Plus,
@@ -43,15 +48,57 @@ import {
   Zap,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
+import { LocalNotifications, Weekday } from "@capacitor/local-notifications";
 
 type BlockType = "focus" | "routine" | "health" | "break" | "shield";
 type TabId = "today" | "focus" | "shield" | "ai" | "insights" | "settings";
 type FocusMode = "deep" | "study" | "routine" | "sleep";
-type ThemeMode = "sunrise" | "midnight" | "forest" | "clean" | "aurora" | "graphite";
+type ThemeMode =
+  | "sunrise"
+  | "midnight"
+  | "forest"
+  | "clean"
+  | "aurora"
+  | "eclipse"
+  | "carbon"
+  | "neon"
+  | "graphite"
+  | "ocean"
+  | "orchid"
+  | "ember"
+  | "mono";
+type UiMode = "standard" | "zen" | "commander";
 type DayKey = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+type SpeechRecognitionResultLike = {
+  0: { transcript: string };
+};
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
 
 type ReminderBlock = {
   id: string;
@@ -62,6 +109,11 @@ type ReminderBlock = {
   minutes: number;
   completed: boolean;
   intensity: number;
+  source?: "local" | "calendar";
+  calendarEventId?: number;
+  calendarStartAt?: number;
+  calendarEndAt?: number;
+  calendarName?: string;
 };
 
 type ShieldTarget = {
@@ -73,6 +125,7 @@ type ShieldTarget = {
   packageName?: string;
   url?: string;
   supportsPiP?: boolean;
+  icon?: string;
 };
 
 type FocusSession = {
@@ -114,6 +167,7 @@ type InstalledApp = {
   packageName: string;
   category?: string;
   supportsPiP?: boolean;
+  icon?: string;
 };
 
 type ProfileSettings = {
@@ -122,11 +176,15 @@ type ProfileSettings = {
   avatar: string;
   accountEmail: string;
   accountConnected: boolean;
+  calendarConnected: boolean;
   dailyFocusGoal: number;
   weeklyFocusGoal: number;
   theme: ThemeMode;
+  uiMode: UiMode;
   focusSound: "rain" | "cafe" | "white-noise" | "off";
   compactMode: boolean;
+  performanceMode: boolean;
+  soundEffects: boolean;
   reduceMotion: boolean;
 };
 
@@ -153,6 +211,16 @@ type NativeAppLimit = {
   minutes: number;
   enabled: boolean;
   warnAt: number;
+};
+
+type NativeCalendarEvent = {
+  eventId: number;
+  title: string;
+  description: string;
+  startAt: number;
+  endAt: number;
+  allDay?: boolean;
+  calendarName?: string;
 };
 
 type NativeFocusStatus = {
@@ -198,7 +266,21 @@ type FocusSchedule = {
   days: DayKey[];
   targetIds: string[];
   notifyBefore: number;
+  calendarEventId?: number;
 };
+
+type AlarmSchedule = {
+  id: string;
+  title: string;
+  time: string;
+  days: DayKey[];
+  enabled: boolean;
+  sound: AlarmSound;
+  clockLinked?: boolean;
+  calendarEventId?: number;
+};
+
+type AlarmSound = "bright" | "soft" | "deep" | "rise" | "pulse" | "classic" | "calm";
 
 type AppLimit = {
   id: string;
@@ -223,6 +305,33 @@ type FocusBlockerPlugin = {
   openUsageSettings(): Promise<void>;
   getStatus(): Promise<NativeFocusStatus>;
   listInstalledApps(): Promise<{ apps: InstalledApp[] }>;
+  setPhoneAlarm(options: {
+    title: string;
+    time: string;
+    days: DayKey[];
+    skipUi?: boolean;
+  }): Promise<{ opened: boolean; skipUi: boolean }>;
+  openClockAlarms(): Promise<void>;
+  dismissPhoneAlarm(options: { title?: string; time?: string }): Promise<void>;
+  openCalendarEvent(options: {
+    title: string;
+    description: string;
+    startAt: number;
+    endAt: number;
+  }): Promise<{ opened: boolean }>;
+  requestCalendarAccess(): Promise<{ calendar: "granted" | "denied" }>;
+  checkCalendarAccess(): Promise<{ calendar: "granted" | "denied" }>;
+  listCalendarEvents(options: { startAt: number; endAt: number }): Promise<{ events: NativeCalendarEvent[] }>;
+  saveCalendarEvent(options: {
+    eventId?: number;
+    title: string;
+    description: string;
+    startAt: number;
+    endAt: number;
+  }): Promise<{ eventId: number; updated: boolean }>;
+  deleteCalendarEvent(options: { eventId: number }): Promise<{ deleted: boolean }>;
+  getSharedText(): Promise<{ text: string }>;
+  clearSharedText(): Promise<void>;
   getUsageHistory(options: { days: number; limits: NativeAppLimit[] }): Promise<{ apps: UsageStat[]; days?: UsageDay[] }>;
 };
 
@@ -239,6 +348,7 @@ const storageKeys = {
   shieldEnabled: "remind-blocks.shield-enabled",
   profile: "remind-blocks.profile",
   schedules: "remind-blocks.schedules",
+  alarms: "remind-blocks.alarms",
   appLimits: "remind-blocks.app-limits"
 };
 
@@ -270,7 +380,14 @@ const themeOptions: Array<{
   { id: "forest", label: "Forest", detail: "Calm green", colors: ["#eff7ee", "#2d7a55", "#d6a84f"] },
   { id: "clean", label: "Clean", detail: "Quiet neutral", colors: ["#f8f8f5", "#5a7c89", "#e0a458"] },
   { id: "aurora", label: "Aurora", detail: "Premium dark", colors: ["#111417", "#49c6a8", "#f35f5f"] },
-  { id: "graphite", label: "Graphite", detail: "Sharp contrast", colors: ["#f4f1eb", "#1f2933", "#5aa8a1"] }
+  { id: "eclipse", label: "Eclipse", detail: "Pure dark", colors: ["#07090b", "#8cf0c8", "#f06595"] },
+  { id: "carbon", label: "Carbon", detail: "Matte black", colors: ["#0d0f12", "#9aa4b2", "#64d2ff"] },
+  { id: "neon", label: "Neon", detail: "Cyber dark", colors: ["#0a0d17", "#7cfff2", "#ff5de4"] },
+  { id: "graphite", label: "Graphite", detail: "Sharp contrast", colors: ["#f4f1eb", "#1f2933", "#5aa8a1"] },
+  { id: "ocean", label: "Ocean", detail: "Fresh blue", colors: ["#eef8fb", "#237c9f", "#ffb86b"] },
+  { id: "orchid", label: "Orchid", detail: "Creative dark", colors: ["#17151f", "#d28cff", "#60d5b1"] },
+  { id: "ember", label: "Ember", detail: "Warm energy", colors: ["#fff4ea", "#b94b3f", "#336b6b"] },
+  { id: "mono", label: "Mono", detail: "Low noise", colors: ["#f6f7f5", "#303634", "#7aa89d"] }
 ];
 
 const focusProfiles: Record<
@@ -484,6 +601,34 @@ const dayLabels: Record<DayKey, string> = {
 
 const appCategoryOptions = ["All", "Shorts", "Social", "Video", "Messaging", "Games", "Browser", "Productivity", "Installed", "PiP"];
 
+const alarmRingtones: Array<{
+  id: AlarmSound;
+  label: string;
+  detail: string;
+}> = [
+  { id: "rise", label: "Rise", detail: "Builds up" },
+  { id: "bright", label: "Bright", detail: "Sharp beep" },
+  { id: "pulse", label: "Pulse", detail: "Fast alert" },
+  { id: "classic", label: "Classic", detail: "Clock bell" },
+  { id: "deep", label: "Deep", detail: "Low tone" },
+  { id: "soft", label: "Soft", detail: "Gentle" },
+  { id: "calm", label: "Calm", detail: "Light chime" }
+];
+
+const alarmQuickPresets: Array<{
+  label: string;
+  title: string;
+  time?: string;
+  offsetMinutes?: number;
+  days: DayKey[];
+  sound: AlarmSound;
+}> = [
+  { label: "Wake", title: "Wake up reset", time: "06:30", days: [1, 2, 3, 4, 5], sound: "rise" },
+  { label: "Study", title: "Study start", time: "19:00", days: [1, 2, 3, 4, 5], sound: "bright" },
+  { label: "Break", title: "Break is over", offsetMinutes: 25, days: [1, 2, 3, 4, 5, 6, 7], sound: "pulse" },
+  { label: "Bedtime", title: "Sleep reset", time: "22:30", days: [1, 2, 3, 4, 5, 6, 7], sound: "calm" }
+];
+
 const nowPlus = (minutes: number) => {
   const date = new Date();
   date.setMinutes(date.getMinutes() + minutes);
@@ -567,11 +712,15 @@ const seedProfile = (): ProfileSettings => ({
   avatar: "S",
   accountEmail: "",
   accountConnected: false,
+  calendarConnected: false,
   dailyFocusGoal: 120,
   weeklyFocusGoal: 720,
   theme: "sunrise",
+  uiMode: "standard",
   focusSound: "rain",
   compactMode: false,
+  performanceMode: true,
+  soundEffects: true,
   reduceMotion: false
 });
 
@@ -586,6 +735,25 @@ const seedSchedules = (): FocusSchedule[] => [
     days: [1, 2, 3, 4, 5],
     targetIds: [],
     notifyBefore: 10
+  }
+];
+
+const seedAlarms = (): AlarmSchedule[] => [
+  {
+    id: createId(),
+    title: "Wake up reset",
+    time: "06:30",
+    days: [1, 2, 3, 4, 5],
+    enabled: true,
+    sound: "rise"
+  },
+  {
+    id: createId(),
+    title: "Evening shutdown",
+    time: "21:30",
+    days: [1, 2, 3, 4, 5, 6, 7],
+    enabled: true,
+    sound: "calm"
   }
 ];
 
@@ -734,8 +902,141 @@ function getNextScheduleDate(schedule: FocusSchedule) {
   return null;
 }
 
+function getNextAlarmDate(alarm: AlarmSchedule) {
+  const now = new Date();
+  for (let offset = 0; offset < 8; offset += 1) {
+    const candidate = new Date(now);
+    candidate.setDate(now.getDate() + offset);
+    const day = getDayKey(candidate);
+    if (!alarm.days.includes(day)) continue;
+    const [hour, minute] = alarm.time.split(":").map(Number);
+    candidate.setHours(hour, minute, 0, 0);
+    if (candidate.getTime() > now.getTime()) return candidate;
+  }
+  return null;
+}
+
+function toNotificationWeekday(day: DayKey): Weekday {
+  if (day === 7) return Weekday.Sunday;
+  return (day + 1) as Weekday;
+}
+
+function getAlarmNotificationId(alarm: AlarmSchedule, day: DayKey) {
+  const base = Math.abs(alarm.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0));
+  return 3000 + ((base + day * 97) % 900000);
+}
+
+function getAlarmMinuteKey(alarm: AlarmSchedule, date = new Date()) {
+  return `${alarm.id}-${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}`;
+}
+
 function formatScheduleDays(days: DayKey[]) {
   return days.length === 7 ? "Every day" : days.map((day) => dayLabels[day]).join(", ");
+}
+
+function getAlarmSoundMeta(sound: AlarmSound) {
+  return alarmRingtones.find((ringtone) => ringtone.id === sound) ?? alarmRingtones[0];
+}
+
+type UiTone = "tap" | "success" | "alert" | "soft" | "alarm";
+let uiAudioContext: AudioContext | null = null;
+
+function playUiTone(tone: UiTone = "tap", enabled = true) {
+  if (!enabled || typeof window === "undefined") return;
+
+  try {
+    const AudioContextCtor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const context = uiAudioContext ?? new AudioContextCtor();
+    uiAudioContext = context;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    const frequency = tone === "alarm" ? 880 : tone === "success" ? 740 : tone === "alert" ? 440 : tone === "soft" ? 360 : 520;
+    const length = tone === "alarm" ? 0.42 : tone === "tap" ? 0.08 : 0.16;
+
+    oscillator.type = tone === "alarm" ? "square" : tone === "alert" ? "triangle" : "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    if (tone === "success") {
+      oscillator.frequency.exponentialRampToValueAtTime(960, now + 0.08);
+    } else if (tone === "alarm") {
+      oscillator.frequency.setValueAtTime(880, now);
+      oscillator.frequency.exponentialRampToValueAtTime(1240, now + 0.18);
+      oscillator.frequency.setValueAtTime(880, now + 0.28);
+    }
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(tone === "alarm" ? 0.09 : tone === "tap" ? 0.025 : 0.045, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + length);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + length + 0.02);
+  } catch {
+    // Sound effects are optional; browsers may block audio until a gesture.
+  }
+}
+
+function playAlarmPulse(sound: AlarmSchedule["sound"], enabled = true) {
+  if (!enabled) return;
+  const sequence: Record<AlarmSound, Array<{ tone: UiTone; delay: number }>> = {
+    rise: [
+      { tone: "soft", delay: 0 },
+      { tone: "success", delay: 260 },
+      { tone: "alarm", delay: 560 }
+    ],
+    bright: [
+      { tone: "alarm", delay: 0 },
+      { tone: "success", delay: 260 },
+      { tone: "alarm", delay: 540 }
+    ],
+    pulse: [
+      { tone: "alarm", delay: 0 },
+      { tone: "alarm", delay: 180 },
+      { tone: "alarm", delay: 520 },
+      { tone: "alarm", delay: 700 }
+    ],
+    classic: [
+      { tone: "alert", delay: 0 },
+      { tone: "alert", delay: 280 },
+      { tone: "alarm", delay: 620 }
+    ],
+    deep: [
+      { tone: "alert", delay: 0 },
+      { tone: "alert", delay: 380 },
+      { tone: "soft", delay: 720 }
+    ],
+    soft: [
+      { tone: "soft", delay: 0 },
+      { tone: "soft", delay: 460 }
+    ],
+    calm: [
+      { tone: "soft", delay: 0 },
+      { tone: "success", delay: 420 }
+    ]
+  };
+
+  sequence[sound].forEach(({ tone, delay }) => {
+    window.setTimeout(() => playUiTone(tone, enabled), delay);
+  });
+}
+
+function vibrateAlarmPattern(enabled = true, sound: AlarmSchedule["sound"] = "bright") {
+  if (!enabled || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+  const pattern: Record<AlarmSound, number[]> = {
+    rise: [240, 120, 420, 160, 640],
+    bright: [520, 140, 520, 220, 760],
+    pulse: [180, 90, 180, 90, 420, 120, 420],
+    classic: [360, 140, 360, 240, 520],
+    deep: [700, 220, 700],
+    soft: [180, 180, 220],
+    calm: [120, 140, 160]
+  };
+  navigator.vibrate(pattern[sound]);
 }
 
 function guessAppCategory(label: string, packageName = "") {
@@ -821,6 +1122,98 @@ function parseTimeRange(text: string) {
     startTime: to24(match[1], match[2], match[3] || match[6]),
     endTime: to24(match[4], match[5], match[6] || match[3])
   };
+}
+
+function parseRelativeOrClockTime(text: string) {
+  const lowered = text.toLowerCase();
+  const relative = lowered.match(/\bin\s+(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)\b/);
+  if (relative) {
+    const amount = Number(relative[1]);
+    const unit = relative[2];
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + (unit.startsWith("h") ? amount * 60 : amount), 0, 0);
+    return date;
+  }
+
+  return parseTimeFromText(text);
+}
+
+function parseDaysFromText(text: string, fallback: DayKey[] = [1, 2, 3, 4, 5]) {
+  const lowered = text.toLowerCase();
+  if (/(every day|daily|all days)/.test(lowered)) return [1, 2, 3, 4, 5, 6, 7] as DayKey[];
+  if (/(weekday|school day|school days)/.test(lowered)) return [1, 2, 3, 4, 5] as DayKey[];
+  if (/(weekend|sat|sun)/.test(lowered) && !/(mon|tue|wed|thu|fri)/.test(lowered)) return [6, 7] as DayKey[];
+
+  const matches: Array<[RegExp, DayKey]> = [
+    [/\b(mon|monday)\b/, 1],
+    [/\b(tue|tues|tuesday)\b/, 2],
+    [/\b(wed|wednesday)\b/, 3],
+    [/\b(thu|thur|thurs|thursday)\b/, 4],
+    [/\b(fri|friday)\b/, 5],
+    [/\b(sat|saturday)\b/, 6],
+    [/\b(sun|sunday)\b/, 7]
+  ];
+  const days = matches.filter(([pattern]) => pattern.test(lowered)).map(([, day]) => day);
+  return days.length ? days : fallback;
+}
+
+function parseAlarmSoundFromText(text: string): AlarmSound {
+  const lowered = text.toLowerCase();
+  return alarmRingtones.find((ringtone) => lowered.includes(ringtone.id) || lowered.includes(ringtone.label.toLowerCase()))?.id ?? "rise";
+}
+
+function getNextScheduleEventRange(schedule: FocusSchedule) {
+  const now = new Date();
+  for (let offset = 0; offset < 8; offset += 1) {
+    const start = new Date(now);
+    start.setDate(now.getDate() + offset);
+    const day = getDayKey(start);
+    if (!schedule.days.includes(day)) continue;
+    const [startHour, startMinute] = schedule.startTime.split(":").map(Number);
+    const [endHour, endMinute] = schedule.endTime.split(":").map(Number);
+    start.setHours(startHour, startMinute, 0, 0);
+    const end = new Date(start);
+    end.setHours(endHour, endMinute, 0, 0);
+    if (end.getTime() <= start.getTime()) {
+      end.setDate(end.getDate() + 1);
+    }
+    if (end.getTime() > now.getTime()) return { start, end };
+  }
+  return null;
+}
+
+function getNextAlarmEventRange(alarm: AlarmSchedule) {
+  const start = getNextAlarmDate(alarm);
+  if (!start) return null;
+  const end = new Date(start.getTime() + 15 * 60000);
+  return { start, end };
+}
+
+function formatIcsDate(date: Date) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function downloadIcsEvent(title: string, description: string, start: Date, end: Date) {
+  const body = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Sine Inverse//Focus Calendar//EN",
+    "BEGIN:VEVENT",
+    `UID:${createId()}@sine-inverse.local`,
+    `DTSTAMP:${formatIcsDate(new Date())}`,
+    `DTSTART:${formatIcsDate(start)}`,
+    `DTEND:${formatIcsDate(end)}`,
+    `SUMMARY:${title.replace(/\n/g, " ")}`,
+    `DESCRIPTION:${description.replace(/\n/g, " ")}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([body], { type: "text/calendar" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "sine-inverse"}.ics`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function getMentionedPresets(text: string) {
@@ -924,6 +1317,9 @@ function App() {
   const [schedules, setSchedules] = useState<FocusSchedule[]>(() =>
     readJson(storageKeys.schedules, seedSchedules())
   );
+  const [alarms, setAlarms] = useState<AlarmSchedule[]>(() =>
+    readJson(storageKeys.alarms, seedAlarms())
+  );
   const [appLimits, setAppLimits] = useState<AppLimit[]>(() =>
     readJson(storageKeys.appLimits, seedAppLimits(readJson(storageKeys.targets, seedTargets())))
   );
@@ -959,6 +1355,8 @@ function App() {
   });
   const [usageStats, setUsageStats] = useState<UsageStat[]>([]);
   const [weeklyUsage, setWeeklyUsage] = useState<UsageDay[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<NativeCalendarEvent[]>([]);
+  const [calendarSyncing, setCalendarSyncing] = useState(false);
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [installedSearch, setInstalledSearch] = useState("");
   const [installedCategory, setInstalledCategory] = useState("All");
@@ -989,8 +1387,22 @@ function App() {
     mode: "study",
     notifyBefore: 10
   });
+  const [alarmDraft, setAlarmDraft] = useState<{
+    title: string;
+    time: string;
+    days: DayKey[];
+    sound: AlarmSchedule["sound"];
+  }>({
+    title: "Morning reset",
+    time: "06:30",
+    days: [1, 2, 3, 4, 5],
+    sound: "bright"
+  });
+  const [ringingAlarm, setRingingAlarm] = useState<AlarmSchedule | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [sharedCommandText, setSharedCommandText] = useState("");
   const [messages, setMessages] = useState<AiMessage[]>([
     {
       id: createId(),
@@ -998,6 +1410,11 @@ function App() {
       text: "I shaped your next day into focus blocks, shield moments, and recovery breaks."
     }
   ]);
+  const firedAlarmKeys = useRef<Set<string>>(new Set());
+  const alarmLoopRef = useRef<number | null>(null);
+  const alarmStopTimeoutRef = useRef<number | null>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const lastSharedTextRef = useRef("");
 
   const completedCount = blocks.filter((block) => block.completed).length;
   const activeBlocks = blocks.filter((block) => !block.completed);
@@ -1016,6 +1433,11 @@ function App() {
   );
   const lockedWebsiteTargets = websiteTargets.filter((target) => target.locked);
   const activeSchedule = schedules.find((schedule) => schedule.enabled && isTimeWindowActive(schedule.startTime, schedule.endTime, schedule.days));
+  const activeAlarms = alarms.filter((alarm) => alarm.enabled);
+  const nextAlarm = activeAlarms
+    .map((alarm) => ({ alarm, next: getNextAlarmDate(alarm) }))
+    .filter((item): item is { alarm: AlarmSchedule; next: Date } => Boolean(item.next))
+    .sort((a, b) => a.next.getTime() - b.next.getTime())[0];
   const enabledAppLimits = appLimits.filter((limit) => limit.enabled);
   const appLimitMap = enabledAppLimits.reduce<Record<string, AppLimit>>((map, limit) => {
     map[limit.packageName] = limit;
@@ -1035,35 +1457,44 @@ function App() {
     ? targets.filter((target) => focusSession.targetIds.includes(target.id))
     : [];
   const blockerActive = shieldEnabled || sessionActive || Boolean(activeSchedule) || enabledAppLimits.length > 0;
-  const appSearchSource = installedApps.length
-    ? installedApps
-    : popularAppTargets.map((target) => ({
-        label: target.label,
-        packageName: target.packageName,
-        category: target.category,
-        supportsPiP: target.supportsPiP
-      }));
-  const filteredInstalledApps = appSearchSource
-    .map((app) => ({ ...app, category: app.category ?? guessAppCategory(app.label, app.packageName) }))
-    .filter((app) => {
-      const query = installedSearch.trim().toLowerCase();
-      const matchesQuery =
-        !query ||
-        app.label.toLowerCase().includes(query) ||
-        app.packageName.toLowerCase().includes(query) ||
-        app.category.toLowerCase().includes(query) ||
-        (app.supportsPiP && /(pip|picture|floating)/.test(query));
-      const matchesCategory =
-        installedCategory === "All" ||
-        (installedCategory === "PiP" ? Boolean(app.supportsPiP) : app.category === installedCategory);
-      return matchesQuery && matchesCategory;
-    })
-    .sort((a, b) =>
-      installedSort === "category"
-        ? `${a.category}${a.label}`.localeCompare(`${b.category}${b.label}`)
-        : a.label.localeCompare(b.label)
-    )
-    .slice(0, 36);
+  const appSearchSource = useMemo<InstalledApp[]>(
+    () =>
+      installedApps.length
+        ? installedApps
+        : popularAppTargets.map((target) => ({
+            label: target.label,
+            packageName: target.packageName,
+            category: target.category,
+            supportsPiP: target.supportsPiP,
+            icon: undefined
+          })),
+    [installedApps]
+  );
+  const filteredInstalledApps = useMemo(
+    () =>
+      appSearchSource
+        .map((app) => ({ ...app, category: app.category ?? guessAppCategory(app.label, app.packageName) }))
+        .filter((app) => {
+          const query = installedSearch.trim().toLowerCase();
+          const matchesQuery =
+            !query ||
+            app.label.toLowerCase().includes(query) ||
+            app.packageName.toLowerCase().includes(query) ||
+            app.category.toLowerCase().includes(query) ||
+            (app.supportsPiP && /(pip|picture|floating)/.test(query));
+          const matchesCategory =
+            installedCategory === "All" ||
+            (installedCategory === "PiP" ? Boolean(app.supportsPiP) : app.category === installedCategory);
+          return matchesQuery && matchesCategory;
+        })
+        .sort((a, b) =>
+          installedSort === "category"
+            ? `${a.category}${a.label}`.localeCompare(`${b.category}${b.label}`)
+            : a.label.localeCompare(b.label)
+        )
+        .slice(0, 36),
+    [appSearchSource, installedCategory, installedSearch, installedSort]
+  );
   const completedFocusMinutes = blocks
     .filter((block) => block.completed)
     .reduce((total, block) => total + block.minutes, 0);
@@ -1076,17 +1507,24 @@ function App() {
   const savedMinutes = nativeStatus.redirectCount * 12;
   const totalScreenMinutes = usageStats.reduce((total, app) => total + app.minutes, 0);
   const overLimitCount = usageStats.filter((app) => app.overLimit).length;
-  const usageLeader = usageStats.slice().sort((a, b) => b.minutes - a.minutes)[0];
+  const usageLeader = useMemo(() => usageStats.slice().sort((a, b) => b.minutes - a.minutes)[0], [usageStats]);
   const pipAppCount = appSearchSource.filter((app) => app.supportsPiP).length;
-  const weeklyReport = weeklyUsage.length ? weeklyUsage : buildFallbackWeeklyUsage(usageStats, 70);
-  const weeklyTotals = weeklyReport.reduce(
-    (totals, day) => ({
-      total: totals.total + day.totalMinutes,
-      productive: totals.productive + day.productiveMinutes,
-      disturbance: totals.disturbance + day.disturbanceMinutes,
-      neutral: totals.neutral + day.neutralMinutes
-    }),
-    { total: 0, productive: 0, disturbance: 0, neutral: 0 }
+  const weeklyReport = useMemo(
+    () => (weeklyUsage.length ? weeklyUsage : buildFallbackWeeklyUsage(usageStats, 70)),
+    [usageStats, weeklyUsage]
+  );
+  const weeklyTotals = useMemo(
+    () =>
+      weeklyReport.reduce(
+        (totals, day) => ({
+          total: totals.total + day.totalMinutes,
+          productive: totals.productive + day.productiveMinutes,
+          disturbance: totals.disturbance + day.disturbanceMinutes,
+          neutral: totals.neutral + day.neutralMinutes
+        }),
+        { total: 0, productive: 0, disturbance: 0, neutral: 0 }
+      ),
+    [weeklyReport]
   );
   const weeklyProductivity = weeklyTotals.total ? Math.round((weeklyTotals.productive / weeklyTotals.total) * 100) : 0;
   const weeklyDisturbance = weeklyTotals.total ? Math.round((weeklyTotals.disturbance / weeklyTotals.total) * 100) : 0;
@@ -1235,6 +1673,10 @@ function App() {
   }, [schedules]);
 
   useEffect(() => {
+    localStorage.setItem(storageKeys.alarms, JSON.stringify(alarms));
+  }, [alarms]);
+
+  useEffect(() => {
     localStorage.setItem(storageKeys.appLimits, JSON.stringify(appLimits));
   }, [appLimits]);
 
@@ -1249,7 +1691,9 @@ function App() {
   useEffect(() => {
     localStorage.setItem(storageKeys.profile, JSON.stringify(profile));
     document.documentElement.dataset.theme = profile.theme;
+    document.documentElement.dataset.uiMode = profile.uiMode ?? "standard";
     document.documentElement.dataset.motion = profile.reduceMotion ? "reduced" : "full";
+    document.documentElement.dataset.performance = (profile.performanceMode ?? true) ? "lite" : "rich";
   }, [profile]);
 
   useEffect(() => {
@@ -1343,6 +1787,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform() && profile.calendarConnected) {
+      void refreshCalendarEvents(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (focusSession?.active && focusSession.endsAt <= Date.now()) {
       setFocusSession(null);
       setTimerRunning(false);
@@ -1368,6 +1818,55 @@ function App() {
       void refreshUsageHistory();
     }
   }, [activeTab, appLimits]);
+
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      const today = getDayKey(now);
+      alarms.filter((alarm) => alarm.enabled).forEach((alarm) => {
+        if (!alarm.days.includes(today)) return;
+        const [hour, minute] = alarm.time.split(":").map(Number);
+        if (now.getHours() !== hour || now.getMinutes() !== minute) return;
+        const key = getAlarmMinuteKey(alarm, now);
+        if (firedAlarmKeys.current.has(key)) return;
+        firedAlarmKeys.current.add(key);
+        void triggerAlarmNow(alarm);
+      });
+    };
+
+    checkAlarms();
+    const interval = window.setInterval(checkAlarms, 15000);
+    return () => window.clearInterval(interval);
+  }, [alarms, profile.soundEffects]);
+
+  const clearAlarmFeedback = () => {
+    if (alarmLoopRef.current !== null) {
+      window.clearInterval(alarmLoopRef.current);
+      alarmLoopRef.current = null;
+    }
+    if (alarmStopTimeoutRef.current !== null) {
+      window.clearTimeout(alarmStopTimeoutRef.current);
+      alarmStopTimeoutRef.current = null;
+    }
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(0);
+    }
+  };
+
+  useEffect(() => () => clearAlarmFeedback(), []);
+
+  const startAlarmFeedback = (alarm: AlarmSchedule) => {
+    clearAlarmFeedback();
+    playAlarmPulse(alarm.sound, profile.soundEffects ?? true);
+    vibrateAlarmPattern(true, alarm.sound);
+    alarmLoopRef.current = window.setInterval(() => {
+      playAlarmPulse(alarm.sound, profile.soundEffects ?? true);
+      vibrateAlarmPattern(true, alarm.sound);
+    }, 1800);
+    alarmStopTimeoutRef.current = window.setTimeout(() => {
+      clearAlarmFeedback();
+    }, 120000);
+  };
 
   const addFocusLog = (title: string, detail: string, tone: FocusLog["tone"] = "ink") => {
     setFocusLogs((logs) => [
@@ -1465,11 +1964,27 @@ function App() {
 
     try {
       const response = await NativeFocusBlocker.listInstalledApps();
+      const nextApps = response.apps.map((app) => ({
+        ...app,
+        category: app.category ?? guessAppCategory(app.label, app.packageName)
+      }));
       setInstalledApps(
-        response.apps.map((app) => ({
-          ...app,
-          category: app.category ?? guessAppCategory(app.label, app.packageName)
-        }))
+        nextApps
+      );
+      setTargets((current) =>
+        current.map((target) => {
+          if (!target.packageName) return target;
+          const app = nextApps.find((item) => item.packageName === target.packageName);
+          return app
+            ? {
+                ...target,
+                label: target.label || app.label,
+                category: app.category ?? target.category,
+                supportsPiP: app.supportsPiP ?? target.supportsPiP,
+                icon: app.icon ?? target.icon
+              }
+            : target;
+        })
       );
       addFocusLog("Installed apps loaded", `${response.apps.length} apps found`, "mint");
     } catch {
@@ -1541,9 +2056,232 @@ function App() {
     }
   };
 
+  const scheduleAlarmNotification = async (alarm: AlarmSchedule) => {
+    const nextDate = getNextAlarmDate(alarm);
+    if (!nextDate || !alarm.enabled) return;
+
+    if (Capacitor.isNativePlatform()) {
+      const permission = await LocalNotifications.requestPermissions();
+      if (permission.display !== "granted") return;
+      const [hour, minute] = alarm.time.split(":").map(Number);
+      const allAlarmIds = ([1, 2, 3, 4, 5, 6, 7] as DayKey[]).map((day) => ({
+        id: getAlarmNotificationId(alarm, day)
+      }));
+      await LocalNotifications.cancel({ notifications: allAlarmIds });
+
+      await LocalNotifications.schedule({
+        notifications: alarm.days.map((day) => ({
+            id: getAlarmNotificationId(alarm, day),
+            title: alarm.title,
+            body: `${alarm.time} · ${dayLabels[day]} · ${getAlarmSoundMeta(alarm.sound).label}`,
+            schedule: {
+              on: {
+                weekday: toNotificationWeekday(day),
+                hour,
+                minute,
+                second: 0
+              },
+              allowWhileIdle: true
+            },
+            smallIcon: "ic_stat_icon_config_sample"
+          }))
+      });
+      return;
+    }
+
+    if ("Notification" in window && Notification.permission !== "granted") {
+      await Notification.requestPermission();
+    }
+
+    const delay = nextDate.getTime() - Date.now();
+    if ("Notification" in window && Notification.permission === "granted" && delay < 2147483647) {
+      window.setTimeout(() => {
+        playAlarmPulse(alarm.sound, true);
+        new Notification(alarm.title, {
+          body: `${alarm.time} · ${formatScheduleDays(alarm.days)}`,
+          icon: "/app-icon.svg"
+        });
+      }, delay);
+    }
+  };
+
+  const createPhoneClockAlarm = async (
+    alarm: AlarmSchedule,
+    options: { skipUi?: boolean; fallbackToApp?: boolean; quiet?: boolean } = {}
+  ) => {
+    if (!Capacitor.isNativePlatform()) {
+      if (options.fallbackToApp) {
+        void scheduleAlarmNotification(alarm);
+      }
+      if (!options.quiet) {
+        addFocusLog("Phone Clock unavailable", "Install the APK to create a real Android alarm.", "gold");
+      }
+      return false;
+    }
+
+    try {
+      await NativeFocusBlocker.setPhoneAlarm({
+        title: alarm.title,
+        time: alarm.time,
+        days: alarm.days,
+        skipUi: options.skipUi ?? true
+      });
+      if (!options.quiet) {
+        addFocusLog(
+          "Phone Clock alarm",
+          `${alarm.title} sent to Android Clock at ${alarm.time}`,
+          "mint"
+        );
+      }
+      playUiTone("success", profile.soundEffects ?? true);
+      return true;
+    } catch {
+      if (options.fallbackToApp) {
+        void scheduleAlarmNotification(alarm);
+      }
+      addFocusLog("In-app alarm fallback", "Clock app was not available, so Sine Inverse armed the alarm here.", "gold");
+      return false;
+    }
+  };
+
+  const cancelAlarmNotifications = async (alarm: AlarmSchedule) => {
+    if (!Capacitor.isNativePlatform()) return;
+    await LocalNotifications.cancel({
+      notifications: ([1, 2, 3, 4, 5, 6, 7] as DayKey[]).map((day) => ({
+        id: getAlarmNotificationId(alarm, day)
+      }))
+    });
+  };
+
+  const setAlarmEnabled = (alarm: AlarmSchedule, enabled: boolean) => {
+    const nextAlarm = { ...alarm, enabled };
+    setAlarms((current) => current.map((item) => item.id === alarm.id ? nextAlarm : item));
+    if (enabled) {
+      void createPhoneClockAlarm(nextAlarm, { fallbackToApp: true, quiet: true }).then((linked) => {
+        if (linked) {
+          setAlarms((current) => current.map((item) => item.id === alarm.id ? { ...item, clockLinked: true } : item));
+        }
+      });
+    } else {
+      void cancelAlarmNotifications(alarm);
+    }
+  };
+
+  const deleteAlarm = (alarm: AlarmSchedule) => {
+    setAlarms((current) => current.filter((item) => item.id !== alarm.id));
+    void cancelAlarmNotifications(alarm);
+    void deleteLinkedCalendarEvent(alarm.calendarEventId);
+    addFocusLog("Alarm deleted", alarm.title, "gold");
+    if (Capacitor.isNativePlatform() && alarm.clockLinked) {
+      void NativeFocusBlocker.dismissPhoneAlarm({ title: alarm.title, time: alarm.time }).catch(() => {
+        addFocusLog("Clock cleanup needed", "Open Clock to delete the matching alarm manually.", "gold");
+      });
+    }
+  };
+
+  const clearAllAlarms = () => {
+    if (!alarms.length) return;
+    const removed = alarms;
+    setAlarms([]);
+    removed.forEach((alarm) => {
+      void cancelAlarmNotifications(alarm);
+      void deleteLinkedCalendarEvent(alarm.calendarEventId);
+      if (Capacitor.isNativePlatform() && alarm.clockLinked) {
+        void NativeFocusBlocker.dismissPhoneAlarm({ title: alarm.title, time: alarm.time }).catch(() => undefined);
+      }
+    });
+    addFocusLog("Alarms cleared", `${removed.length} removed`, "gold");
+  };
+
+  const deleteBlock = (block: ReminderBlock) => {
+    setBlocks((current) => current.filter((item) => item.id !== block.id));
+    void deleteLinkedCalendarEvent(block.calendarEventId);
+  };
+
+  const deleteSchedule = (schedule: FocusSchedule) => {
+    setSchedules((current) => current.filter((item) => item.id !== schedule.id));
+    void deleteLinkedCalendarEvent(schedule.calendarEventId);
+    addFocusLog("Schedule deleted", schedule.title, "gold");
+  };
+
+  const clearAllSchedules = () => {
+    if (!schedules.length) return;
+    const removed = schedules;
+    setSchedules([]);
+    removed.forEach((schedule) => void deleteLinkedCalendarEvent(schedule.calendarEventId));
+    addFocusLog("Schedules cleared", `${removed.length} removed`, "gold");
+  };
+
+  const triggerAlarmNow = async (alarm: AlarmSchedule) => {
+    setRingingAlarm(alarm);
+    startAlarmFeedback(alarm);
+    addFocusLog("Alarm ringing", `${alarm.title} · ${alarm.time}`, "gold");
+  };
+
+  const stopRingingAlarm = () => {
+    const alarm = ringingAlarm;
+    clearAlarmFeedback();
+    setRingingAlarm(null);
+    if (alarm) {
+      addFocusLog("Alarm stopped", `${alarm.title} stopped at ${formatTime(Date.now())}`, "mint");
+    }
+  };
+
+  const snoozeRingingAlarm = async (minutes = 5) => {
+    if (!ringingAlarm) return;
+    const alarm = ringingAlarm;
+    const snoozeAt = new Date(Date.now() + minutes * 60000);
+    const snoozedAlarm: AlarmSchedule = {
+      ...alarm,
+      id: `${alarm.id}-snooze-${Date.now()}`,
+      time: formatInputTime(snoozeAt),
+      days: [getDayKey(snoozeAt)],
+      enabled: true
+    };
+    clearAlarmFeedback();
+    setRingingAlarm(null);
+    window.setTimeout(() => {
+      void triggerAlarmNow(snoozedAlarm);
+    }, minutes * 60000);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const permission = await LocalNotifications.requestPermissions();
+        if (permission.display === "granted") {
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                id: getAlarmNotificationId(snoozedAlarm, getDayKey(snoozeAt)) + 700000,
+                title: `${alarm.title} snooze`,
+                body: `Snoozed until ${formatTime(snoozeAt.getTime())}`,
+                schedule: { at: snoozeAt, allowWhileIdle: true },
+                smallIcon: "ic_stat_icon_config_sample"
+              }
+            ]
+          });
+        }
+      } catch {
+        // The live timeout still rings if the app stays open.
+      }
+    }
+    addFocusLog("Alarm snoozed", `${alarm.title} for ${minutes} minutes`, "gold");
+  };
+
   const armScheduleNotifications = () => {
     schedules.filter((schedule) => schedule.enabled).forEach((schedule) => void scheduleFocusStartNotification(schedule));
     addFocusLog("Schedule alerts armed", `${schedules.filter((schedule) => schedule.enabled).length} focus windows`, "mint");
+  };
+
+  const armAlarmNotifications = () => {
+    if (!activeAlarms.length) {
+      addFocusLog("No alarms", "Create an alarm first.", "gold");
+      return;
+    }
+    if (Capacitor.isNativePlatform()) {
+      void createPhoneClockAlarm(nextAlarm?.alarm ?? activeAlarms[0], { skipUi: false, fallbackToApp: true });
+      return;
+    }
+    activeAlarms.forEach((alarm) => void scheduleAlarmNotification(alarm));
+    addFocusLog("In-app alarms armed", `${activeAlarms.length} alarm schedules`, "mint");
   };
 
   const armLimitReminders = async () => {
@@ -1707,7 +2445,16 @@ function App() {
       const exists = current.some((target) => target.packageName === app.packageName);
       if (exists) {
         return current.map((target) =>
-          target.packageName === app.packageName ? { ...target, locked: true } : target
+          target.packageName === app.packageName
+            ? {
+                ...target,
+                label: app.label || target.label,
+                category: app.category ?? target.category,
+                supportsPiP: app.supportsPiP ?? target.supportsPiP,
+                icon: app.icon ?? target.icon,
+                locked: true
+              }
+            : target
         );
       }
       return [
@@ -1718,6 +2465,7 @@ function App() {
           category: app.category ?? guessAppCategory(app.label, app.packageName),
           packageName: app.packageName,
           supportsPiP: app.supportsPiP,
+          icon: app.icon,
           locked: true
         },
         ...current
@@ -1732,7 +2480,8 @@ function App() {
       label: sourceApp?.label ?? preset?.label ?? packageName,
       packageName,
       category: sourceApp?.category ?? preset?.category ?? guessAppCategory(sourceApp?.label ?? preset?.label ?? packageName, packageName),
-      supportsPiP: sourceApp?.supportsPiP ?? preset?.supportsPiP
+      supportsPiP: sourceApp?.supportsPiP ?? preset?.supportsPiP,
+      icon: sourceApp?.icon
     };
   };
 
@@ -1741,7 +2490,16 @@ function App() {
       const existing = current.find((target) => target.packageName === app.packageName);
       if (existing) {
         return current.map((target) =>
-          target.packageName === app.packageName ? { ...target, locked } : target
+          target.packageName === app.packageName
+            ? {
+                ...target,
+                label: app.label || target.label,
+                category: app.category ?? target.category,
+                supportsPiP: app.supportsPiP ?? target.supportsPiP,
+                icon: app.icon ?? target.icon,
+                locked
+              }
+            : target
         );
       }
 
@@ -1753,6 +2511,7 @@ function App() {
           category: app.category ?? guessAppCategory(app.label, app.packageName),
           packageName: app.packageName,
           supportsPiP: app.supportsPiP,
+          icon: app.icon,
           locked
         },
         ...current
@@ -1879,8 +2638,262 @@ function App() {
     addFocusLog("Schedule created", `${title} ${schedule.startTime}-${schedule.endTime}`, "mint");
   };
 
+  const addAlarmSchedule = () => {
+    const title = alarmDraft.title.trim() || "Focus alarm";
+    const alarm: AlarmSchedule = {
+      id: createId(),
+      title,
+      time: alarmDraft.time,
+      days: alarmDraft.days.length ? alarmDraft.days : [1, 2, 3, 4, 5, 6, 7],
+      enabled: true,
+      sound: alarmDraft.sound
+    };
+    setAlarms((current) => [alarm, ...current]);
+    void createPhoneClockAlarm(alarm, { fallbackToApp: true, quiet: true }).then((linked) => {
+      if (linked) {
+        setAlarms((current) => current.map((item) => item.id === alarm.id ? { ...item, clockLinked: true } : item));
+      }
+    });
+    const now = new Date();
+    const [hour, minute] = alarm.time.split(":").map(Number);
+    if (alarm.days.includes(getDayKey(now)) && now.getHours() === hour && now.getMinutes() === minute) {
+      void triggerAlarmNow(alarm);
+    }
+    playUiTone("success", profile.soundEffects ?? true);
+    addFocusLog("Alarm created", `${title} at ${alarm.time}`, "mint");
+  };
+
+  const createAlarmFromCommand = (text: string) => {
+    const date = parseRelativeOrClockTime(text);
+    const title =
+      cleanTitle(text)
+        .replace(/\b(set|create|make|alarm|ring|wake|wake me|at|in|with|sound|tone)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim() || "AI alarm";
+    const alarm: AlarmSchedule = {
+      id: createId(),
+      title,
+      time: formatInputTime(date),
+      days: parseDaysFromText(text, [getDayKey(date)]),
+      enabled: true,
+      sound: parseAlarmSoundFromText(text)
+    };
+    setAlarms((current) => [alarm, ...current]);
+    void createPhoneClockAlarm(alarm, { fallbackToApp: true, quiet: true }).then((linked) => {
+      if (linked) {
+        setAlarms((current) => current.map((item) => item.id === alarm.id ? { ...item, clockLinked: true } : item));
+      }
+    });
+    addFocusLog("AI alarm created", `${alarm.title} at ${alarm.time}`, "mint");
+    return alarm;
+  };
+
+  const ensureCalendarAccess = async (quiet = false) => {
+    if (!Capacitor.isNativePlatform()) return false;
+    try {
+      const current = await NativeFocusBlocker.checkCalendarAccess();
+      if (current.calendar === "granted") {
+        setProfile((profileState) => ({ ...profileState, calendarConnected: true }));
+        return true;
+      }
+      const requested = await NativeFocusBlocker.requestCalendarAccess();
+      const granted = requested.calendar === "granted";
+      setProfile((profileState) => ({ ...profileState, calendarConnected: granted }));
+      if (!quiet) {
+        addFocusLog(granted ? "Calendar connected" : "Calendar denied", granted ? "Two-way sync is ready." : "Allow Calendar access to sync events.", granted ? "mint" : "gold");
+      }
+      return granted;
+    } catch {
+      if (!quiet) addFocusLog("Calendar unavailable", "Calendar provider could not be opened.", "gold");
+      return false;
+    }
+  };
+
+  const saveLinkedCalendarEvent = async ({
+    eventId,
+    title,
+    description,
+    start,
+    end,
+    onLinked
+  }: {
+    eventId?: number;
+    title: string;
+    description: string;
+    start: Date;
+    end: Date;
+    onLinked: (eventId: number) => void;
+  }) => {
+    if (Capacitor.isNativePlatform() && await ensureCalendarAccess(true)) {
+      try {
+        const response = await NativeFocusBlocker.saveCalendarEvent({
+          eventId,
+          title,
+          description,
+          startAt: start.getTime(),
+          endAt: end.getTime()
+        });
+        onLinked(response.eventId);
+        addFocusLog(response.updated ? "Calendar updated" : "Calendar synced", title, "mint");
+        void refreshCalendarEvents(false);
+        return;
+      } catch {
+        addFocusLog("Calendar fallback", "Exported an ICS file instead.", "gold");
+      }
+    }
+
+    downloadIcsEvent(title, description, start, end);
+  };
+
+  const deleteLinkedCalendarEvent = async (eventId?: number) => {
+    if (!eventId || !Capacitor.isNativePlatform()) return;
+    if (!await ensureCalendarAccess(true)) return;
+    try {
+      await NativeFocusBlocker.deleteCalendarEvent({ eventId });
+      setCalendarEvents((current) => current.filter((event) => event.eventId !== eventId));
+      addFocusLog("Calendar event removed", `Event ${eventId} deleted`, "mint");
+    } catch {
+      addFocusLog("Calendar delete failed", "Open Calendar to remove it manually.", "gold");
+    }
+  };
+
+  const importCalendarEventsIntoBlocks = (events: NativeCalendarEvent[]) => {
+    const eventIds = new Set(events.map((event) => event.eventId));
+    const eventById = new Map(events.map((event) => [event.eventId, event]));
+    setBlocks((current) => {
+      const kept = current
+        .filter((block) => block.source !== "calendar" || (block.calendarEventId && eventIds.has(block.calendarEventId)))
+        .map((block) => {
+          if (block.source !== "calendar" || !block.calendarEventId) return block;
+          const event = eventById.get(block.calendarEventId);
+          if (!event) return block;
+          return {
+            ...block,
+            title: event.title || block.title,
+            detail: event.description || `${event.calendarName ?? "Calendar"} event`,
+            dueAt: new Date(event.startAt).toISOString(),
+            minutes: Math.max(5, Math.round((event.endAt - event.startAt) / 60000)),
+            calendarStartAt: event.startAt,
+            calendarEndAt: event.endAt,
+            calendarName: event.calendarName
+          };
+        });
+      const existing = new Set(kept.map((block) => block.calendarEventId).filter(Boolean));
+      const imported = events
+        .filter((event) => !existing.has(event.eventId))
+        .map((event): ReminderBlock => ({
+          id: `calendar-${event.eventId}`,
+          title: event.title || "Calendar event",
+          detail: event.description || `${event.calendarName ?? "Calendar"} event`,
+          type: /study|class|exam|work|focus|meeting/i.test(event.title) ? "focus" : "routine",
+          dueAt: new Date(event.startAt).toISOString(),
+          minutes: Math.max(5, Math.round((event.endAt - event.startAt) / 60000)),
+          completed: false,
+          intensity: event.allDay ? 35 : 64,
+          source: "calendar",
+          calendarEventId: event.eventId,
+          calendarStartAt: event.startAt,
+          calendarEndAt: event.endAt,
+          calendarName: event.calendarName
+        }));
+      return [...imported, ...kept].sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+    });
+  };
+
+  const refreshCalendarEvents = async (importToBlocks = true) => {
+    if (!Capacitor.isNativePlatform()) {
+      addFocusLog("Calendar export ready", "On web, Sine Inverse exports .ics files.", "gold");
+      return;
+    }
+    setCalendarSyncing(true);
+    try {
+      if (!await ensureCalendarAccess(true)) {
+        addFocusLog("Calendar access needed", "Allow Calendar access to import events.", "gold");
+        return;
+      }
+      const now = Date.now();
+      const response = await NativeFocusBlocker.listCalendarEvents({
+        startAt: now - 2 * 60 * 60 * 1000,
+        endAt: now + 14 * 24 * 60 * 60 * 1000
+      });
+      setCalendarEvents(response.events);
+      if (importToBlocks) importCalendarEventsIntoBlocks(response.events);
+      setProfile((profileState) => ({ ...profileState, calendarConnected: true }));
+      addFocusLog("Calendar synced", `${response.events.length} upcoming events`, "mint");
+    } catch {
+      addFocusLog("Calendar sync failed", "Check Calendar permission and try again.", "gold");
+    } finally {
+      setCalendarSyncing(false);
+    }
+  };
+
+  const syncScheduleToCalendar = (schedule: FocusSchedule) => {
+    const range = getNextScheduleEventRange(schedule);
+    if (!range) {
+      addFocusLog("No calendar time", `${schedule.title} has no upcoming window.`, "gold");
+      return;
+    }
+    void saveLinkedCalendarEvent({
+      eventId: schedule.calendarEventId,
+      title: schedule.title,
+      description: `${focusProfiles[schedule.mode].label} · ${formatScheduleDays(schedule.days)} · Sine Inverse`,
+      start: range.start,
+      end: range.end,
+      onLinked: (eventId) =>
+        setSchedules((current) =>
+          current.map((item) => item.id === schedule.id ? { ...item, calendarEventId: eventId } : item)
+        )
+    });
+  };
+
+  const syncAlarmToCalendar = (alarm: AlarmSchedule) => {
+    const range = getNextAlarmEventRange(alarm);
+    if (!range) {
+      addFocusLog("No alarm time", `${alarm.title} has no upcoming ring.`, "gold");
+      return;
+    }
+    void saveLinkedCalendarEvent({
+      eventId: alarm.calendarEventId,
+      title: alarm.title,
+      description: `Alarm · ${getAlarmSoundMeta(alarm.sound).label} · ${formatScheduleDays(alarm.days)} · Sine Inverse`,
+      start: range.start,
+      end: range.end,
+      onLinked: (eventId) =>
+        setAlarms((current) =>
+          current.map((item) => item.id === alarm.id ? { ...item, calendarEventId: eventId } : item)
+        )
+    });
+  };
+
+  const syncNextCalendarItem = () => {
+    const nextSchedule = schedules
+      .filter((schedule) => schedule.enabled)
+      .map((schedule) => ({ schedule, range: getNextScheduleEventRange(schedule) }))
+      .filter((item): item is { schedule: FocusSchedule; range: { start: Date; end: Date } } => Boolean(item.range))
+      .sort((a, b) => a.range.start.getTime() - b.range.start.getTime())[0];
+
+    if (nextSchedule) {
+      syncScheduleToCalendar(nextSchedule.schedule);
+      return;
+    }
+    if (nextAlarm?.alarm) {
+      syncAlarmToCalendar(nextAlarm.alarm);
+      return;
+    }
+    addFocusLog("Nothing to sync", "Create a schedule or alarm first.", "gold");
+  };
+
   const toggleDraftDay = (day: DayKey) => {
     setScheduleDraft((current) => ({
+      ...current,
+      days: current.days.includes(day)
+        ? current.days.filter((item) => item !== day)
+        : [...current.days, day].sort((a, b) => a - b)
+    }));
+  };
+
+  const toggleAlarmDraftDay = (day: DayKey) => {
+    setAlarmDraft((current) => ({
       ...current,
       days: current.days.includes(day)
         ? current.days.filter((item) => item !== day)
@@ -1918,9 +2931,36 @@ function App() {
     );
   };
 
+  const toggleAlarmDay = (alarmId: string, day: DayKey) => {
+    setAlarms((current) =>
+      current.map((alarm) =>
+        alarm.id === alarmId
+          ? {
+              ...alarm,
+              days: alarm.days.includes(day)
+                ? alarm.days.filter((item) => item !== day)
+                : [...alarm.days, day].sort((a, b) => a - b)
+            }
+          : alarm
+      )
+    );
+  };
+
+  const updateAlarmSound = (alarmId: string, sound: AlarmSound) => {
+    setAlarms((current) =>
+      current.map((alarm) => (alarm.id === alarmId ? { ...alarm, sound } : alarm))
+    );
+    playAlarmPulse(sound, profile.soundEffects ?? true);
+  };
+
+  const previewAlarmSound = (sound: AlarmSound) => {
+    playAlarmPulse(sound, profile.soundEffects ?? true);
+    vibrateAlarmPattern(true, sound);
+  };
+
   const openUsageSettings = async () => {
     if (!Capacitor.isNativePlatform()) {
-      addFocusLog("Usage access", "Native screen-time history appears inside the APK.", "gold");
+      addFocusLog("Usage access", "Screen-time ready in APK.", "gold");
       return;
     }
 
@@ -1982,15 +3022,19 @@ function App() {
     const lowered = text.toLowerCase();
     const wantsLimit = /(limit|usage|timer|only|per day|daily|allow)/.test(lowered);
     const wantsSchedule = /(schedule|every\s+(day|weekday|weekend|night)|from\b|until|till|-)/.test(lowered);
+    const wantsAlarm = /\b(alarm|wake me|wake up|ring|ringer)\b/.test(lowered);
+    const wantsFocusStart = /\b(start|begin|launch)\b.*\b(focus|study|sprint|deep work)\b/.test(lowered);
+    const wantsCalendar = /\b(calendar|sync|export)\b/.test(lowered);
     const durationMinutes = parseDurationMinutes(text, focusMinutes);
     const timeRange = parseTimeRange(text);
+    const createdAlarm = wantsAlarm ? createAlarmFromCommand(text) : null;
 
     if (wantsLimit && aiTargets.length) {
       aiTargets.forEach((target) => upsertAppLimit(target, { minutes: durationMinutes, enabled: true }));
       addFocusLog("AI limit set", `${aiTargets.length} apps at ${formatMinutes(durationMinutes)}/day`, "mint");
     }
 
-    if (wantsSchedule || timeRange) {
+    if ((wantsSchedule || timeRange) && !wantsAlarm) {
       const range = timeRange ?? {
         startTime: formatInputTime(parseTimeFromText(text)),
         endTime: "21:00"
@@ -2002,17 +3046,33 @@ function App() {
         mode: lowered.includes("sleep") || lowered.includes("night") ? "sleep" : lowered.includes("study") ? "study" : focusMode,
         startTime: range.startTime,
         endTime: range.endTime,
-        days: lowered.includes("weekend") ? [6, 7] : lowered.includes("daily") || lowered.includes("every") ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5],
+        days: parseDaysFromText(text, lowered.includes("daily") || lowered.includes("every") ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5]),
         targetIds: aiTargets.length ? aiTargets.map((target) => target.id) : targets.filter((target) => target.locked).map((target) => target.id),
         notifyBefore: 10
       };
       setSchedules((current) => [schedule, ...current]);
       void scheduleFocusStartNotification(schedule);
       addFocusLog("AI schedule created", `${schedule.startTime}-${schedule.endTime}`, "mint");
+      if (wantsCalendar) {
+        window.setTimeout(() => syncScheduleToCalendar(schedule), 100);
+      }
     }
 
-    const block = addAiBlock(text);
-    const gap = minutesUntil(block.dueAt);
+    if (wantsFocusStart) {
+      startFocusSession({
+        mode: lowered.includes("study") ? "study" : lowered.includes("sleep") ? "sleep" : lowered.includes("routine") ? "routine" : focusMode,
+        minutes: durationMinutes,
+        title: "AI voice sprint"
+      });
+    }
+
+    if (wantsCalendar && !wantsSchedule) {
+      syncNextCalendarItem();
+    }
+
+    const actionTaken = Boolean(createdAlarm || wantsLimit || wantsSchedule || timeRange || wantsFocusStart || wantsCalendar);
+    const block = actionTaken ? null : addAiBlock(text);
+    const gap = block ? minutesUntil(block.dueAt) : 0;
     const insight = buildAiInsight({
       text,
       appCount: aiTargets.length,
@@ -2022,12 +3082,15 @@ function App() {
     });
     let response =
       [
-        block.type === "shield"
+        createdAlarm ? `Created "${createdAlarm.title}" at ${createdAlarm.time}.` : "",
+        block && block.type === "shield"
           ? `Locked a shield block for ${formatTime(block.dueAt)}.`
-          : `Added "${block.title}" at ${formatTime(block.dueAt)}. It starts in ${Math.max(gap, 0)} minutes.`,
+          : block ? `Added "${block.title}" at ${formatTime(block.dueAt)}. It starts in ${Math.max(gap, 0)} minutes.` : "",
         insight,
         wantsLimit && aiTargets.length ? `${aiTargets.map((target) => target.label).slice(0, 3).join(", ")} now have ${formatMinutes(durationMinutes)} daily timers.` : "",
-        (wantsSchedule || timeRange) ? "A scheduled focus window is ready in Focus." : ""
+        (wantsSchedule || timeRange) && !wantsAlarm ? "A scheduled focus window is ready in Focus." : "",
+        wantsFocusStart ? `Started ${formatMinutes(durationMinutes)} of protected focus.` : "",
+        wantsCalendar ? "Calendar sync is queued." : ""
       ]
         .filter(Boolean)
         .join(" ");
@@ -2045,6 +3108,92 @@ function App() {
     if (!overrideText) setAiInput("");
     setAiThinking(false);
   };
+
+  const startVoiceCommand = () => {
+    const speechWindow = typeof window === "undefined" ? null : (window as SpeechWindow);
+    const Recognition = speechWindow?.SpeechRecognition ?? speechWindow?.webkitSpeechRecognition;
+    if (!Recognition) {
+      addFocusLog("Voice unavailable", "Speech recognition is not available on this device.", "gold");
+      return;
+    }
+
+    if (voiceListening) {
+      speechRecognitionRef.current?.stop();
+      setVoiceListening(false);
+      return;
+    }
+
+    const recognition = new Recognition();
+    speechRecognitionRef.current = recognition;
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim() ?? "";
+      if (!transcript) return;
+      setAiInput(transcript);
+      void handleAiSubmit(transcript);
+    };
+    recognition.onerror = () => {
+      setVoiceListening(false);
+      addFocusLog("Voice stopped", "Try the command again.", "gold");
+    };
+    recognition.onend = () => setVoiceListening(false);
+    setVoiceListening(true);
+    recognition.start();
+  };
+
+  const importSharedCommandText = async (textOverride?: string, quiet = false) => {
+    let text = textOverride?.trim() ?? "";
+    if (!text && Capacitor.isNativePlatform()) {
+      try {
+        const response = await NativeFocusBlocker.getSharedText();
+        text = response.text.trim();
+      } catch {
+        text = "";
+      }
+    }
+
+    if (!text) {
+      if (!quiet) {
+        addFocusLog("No shared command", "Share text into Sine Inverse first.", "gold");
+      }
+      return;
+    }
+    if (text === lastSharedTextRef.current) return;
+
+    lastSharedTextRef.current = text;
+    setSharedCommandText(text);
+    setAiInput(text);
+    setActiveTab("ai");
+    await handleAiSubmit(text);
+    if (Capacitor.isNativePlatform()) {
+      void NativeFocusBlocker.clearSharedText();
+    }
+  };
+
+  const copyChatGptBridgePrompt = async () => {
+    const bridgePrompt = [
+      "Send Sine Inverse commands in short action form.",
+      "Examples: set alarm 6:30am weekdays, block shorts until tonight, limit YouTube to 2 hours daily, schedule study 7pm to 9pm, sync calendar."
+    ].join(" ");
+
+    try {
+      await navigator.clipboard.writeText(bridgePrompt);
+      addFocusLog("ChatGPT prompt copied", "Paste it into a chat, then share a command back here.", "mint");
+    } catch {
+      setAiInput(bridgePrompt);
+      addFocusLog("Bridge prompt ready", "The prompt is in the AI command box.", "gold");
+    }
+  };
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void importSharedCommandText(undefined, true);
+    const onFocus = () => void importSharedCommandText(undefined, true);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   const generateDailyPlan = () => {
     const plan: AiMessage = {
@@ -2211,6 +3360,18 @@ function App() {
     }
   };
 
+  const openClockManager = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      addFocusLog("Clock manager", "Android Clock opens inside the APK.", "gold");
+      return;
+    }
+    try {
+      await NativeFocusBlocker.openClockAlarms();
+    } catch {
+      addFocusLog("Clock unavailable", "Open the Clock app manually.", "gold");
+    }
+  };
+
   const openAccessibilitySettings = async () => {
     if (!Capacitor.isNativePlatform()) return;
     try {
@@ -2221,24 +3382,86 @@ function App() {
     }
   };
 
+  const cleanCompletedBlocks = () => {
+    const completedBlocks = blocks.filter((block) => block.completed);
+    if (!completedBlocks.length) {
+      addFocusLog("Nothing to clean", "No completed blocks yet.", "gold");
+      return;
+    }
+    completedBlocks.forEach((block) => void deleteLinkedCalendarEvent(block.calendarEventId));
+    setBlocks((current) => current.filter((block) => !block.completed));
+    addFocusLog("Day cleaned", `${completedBlocks.length} completed blocks cleared.`, "mint");
+  };
+
+  const activatePerformanceMode = () => {
+    setProfile((current) => ({
+      ...current,
+      compactMode: true,
+      performanceMode: true
+    }));
+    addFocusLog("Smooth mode enabled", "Reduced heavy effects and compacted the layout.", "mint");
+  };
+
   const timerLabel = formatDuration(secondsLeft);
+  const todayPreviewBlocks = (activeBlocks.length ? activeBlocks : blocks).slice(0, 2);
+  const hiddenTodayBlocks = Math.max(0, blocks.length - todayPreviewBlocks.length);
+  const handleShellPointerUp = (event: PointerEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest(".app-picker-row")) {
+      playUiTone("tap", profile.soundEffects ?? true);
+      return;
+    }
+    if (target.closest("input, textarea, select, option")) return;
+    if (target.closest("button, .app-picker-row, .switch-card, .selected-app-chip")) {
+      playUiTone("tap", profile.soundEffects ?? true);
+    }
+  };
 
   return (
-    <main className={`app-shell ${sessionActive ? "focus-live" : ""} ${profile.compactMode ? "compact" : ""}`}>
+    <main
+      className={`app-shell mode-${profile.uiMode ?? "standard"} ${sessionActive ? "focus-live" : ""} ${profile.compactMode ? "compact" : ""}`}
+      onPointerUp={handleShellPointerUp}
+    >
       {launching && (
         <section className={`launch-screen ${launchClosing ? "is-hiding" : ""}`} aria-label="Sine Inverse loading">
-          <img src="/app-icon.svg" alt="" />
-          <div>
-            <p className="eyebrow">Sine Inverse</p>
-            <h2>Reverse the drift.</h2>
-            <span>Loading your guardrails</span>
+          <div className="launch-card">
+            <div className="launch-mark-wrap">
+              <span className="launch-ring" />
+              <img src="/app-icon.svg" alt="" />
+            </div>
+            <div className="launch-copy">
+              <p className="eyebrow">Sine Inverse</p>
+              <h2>Ready.</h2>
+              <span>Focus, limits, shield.</span>
+            </div>
+            <div className="launch-progress" aria-hidden="true">
+              <span />
+            </div>
           </div>
-          <div className="launch-steps" aria-hidden="true">
-            <span>Shield</span>
-            <span>Timers</span>
-            <span>AI</span>
+        </section>
+      )}
+      {ringingAlarm && (
+        <section className="alarm-fullscreen" role="dialog" aria-modal="true" aria-label={`${ringingAlarm.title} alarm`}>
+          <div className="alarm-fullscreen-card">
+            <div className="alarm-pulse-mark" aria-hidden="true">
+              <span />
+              <AlarmClock size={42} />
+            </div>
+            <p className="eyebrow">Alarm ringing</p>
+            <h2>{ringingAlarm.title}</h2>
+            <strong>{ringingAlarm.time}</strong>
+            <small>{formatScheduleDays(ringingAlarm.days)} · {getAlarmSoundMeta(ringingAlarm.sound).label}</small>
+            <div className="alarm-fullscreen-actions">
+              <button className="action-button light" type="button" onClick={() => void snoozeRingingAlarm(5)}>
+                <TimerReset size={18} />
+                <span>Snooze 5m</span>
+              </button>
+              <button className="action-button" type="button" onClick={stopRingingAlarm}>
+                <Check size={18} />
+                <span>Stop</span>
+              </button>
+            </div>
           </div>
-          <i aria-hidden="true" />
         </section>
       )}
       <aside className="sidebar">
@@ -2358,8 +3581,8 @@ function App() {
             <>
               <section className="hero-panel">
                 <div className="hero-copy">
-                  <p className="eyebrow">Inverse focus map</p>
-                  <h2>Reverse the drift and rebuild the right life.</h2>
+                  <p className="eyebrow">Today</p>
+                  <h2>Reverse the drift.</h2>
                   <div className="hero-status-grid" aria-label="Focus readiness">
                     <span>
                       <strong>{focusScore}</strong>
@@ -2378,7 +3601,7 @@ function App() {
                     <input
                       value={quickText}
                       onChange={(event) => setQuickText(event.target.value)}
-                      placeholder="Study physics, take medicine, block socials..."
+                      placeholder="Add focus block..."
                     />
                     <select value={manualType} onChange={(event) => setManualType(event.target.value as BlockType)}>
                       {Object.entries(typeMeta).map(([key, meta]) => (
@@ -2422,6 +3645,27 @@ function App() {
                     <small>{lockedTargets} blocked</small>
                   </span>
                 </button>
+                <button type="button" onClick={cleanCompletedBlocks}>
+                  <CheckCircle2 size={20} />
+                  <span>
+                    <strong>Clean up</strong>
+                    <small>{completedCount} done</small>
+                  </span>
+                </button>
+                <button type="button" onClick={activatePerformanceMode}>
+                  <Zap size={20} />
+                  <span>
+                    <strong>Smooth mode</strong>
+                    <small>{profile.performanceMode ?? true ? "On" : "Tap to boost"}</small>
+                  </span>
+                </button>
+                <button type="button" onClick={() => void refreshCalendarEvents(true)}>
+                  <CalendarPlus size={20} />
+                  <span>
+                    <strong>Calendar</strong>
+                    <small>{calendarEvents.length} events</small>
+                  </span>
+                </button>
                 <button type="button" onClick={() => setActiveTab("insights")}>
                   <BarChart3 size={20} />
                   <span>
@@ -2429,6 +3673,43 @@ function App() {
                     <small>{weeklyProductivity}% productive</small>
                   </span>
                 </button>
+              </section>
+
+              <section className="calendar-sync-panel">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Calendar</p>
+                    <h3>{profile.calendarConnected ? `${calendarEvents.length} events` : "Connect calendar"}</h3>
+                  </div>
+                  <button className="icon-button" type="button" onClick={() => void refreshCalendarEvents(true)} aria-label="Sync calendar" title="Sync calendar">
+                    <RefreshCw size={18} />
+                  </button>
+                </div>
+                <div className="calendar-event-strip">
+                  {(calendarEvents.length ? calendarEvents.slice(0, 5) : [
+                    {
+                      eventId: 0,
+                      title: "Import Calendar",
+                      description: "Import events.",
+                      startAt: Date.now(),
+                      endAt: Date.now() + 3600000,
+                      calendarName: "Sine Inverse"
+                    }
+                  ]).map((event) => (
+                    <button
+                      key={event.eventId || event.title}
+                      className="calendar-event-card"
+                      type="button"
+                      onClick={() => event.eventId ? importCalendarEventsIntoBlocks([event]) : void refreshCalendarEvents(true)}
+                    >
+                      <CalendarDays size={18} />
+                      <span>
+                        <strong>{event.title}</strong>
+                        <small>{event.eventId ? `${formatTime(event.startAt)} · ${event.calendarName ?? "Calendar"}` : event.description}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </section>
 
               <section className="flow-panel">
@@ -2486,10 +3767,12 @@ function App() {
                     <p className="eyebrow">Blocks</p>
                     <h3>Today</h3>
                   </div>
-                  <span>{completedCount}/{blocks.length}</span>
+                  <button className="section-link" type="button" onClick={() => setActiveTab("focus")}>
+                    {hiddenTodayBlocks ? `${hiddenTodayBlocks} more` : `${completedCount}/${blocks.length}`}
+                  </button>
                 </div>
                 <div className="block-grid">
-                  {blocks.map((block) => (
+                  {todayPreviewBlocks.map((block) => (
                     <BlockCard
                       key={block.id}
                       block={block}
@@ -2505,7 +3788,7 @@ function App() {
                           )
                         )
                       }
-                      onDelete={() => setBlocks((current) => current.filter((item) => item.id !== block.id))}
+                      onDelete={() => deleteBlock(block)}
                     />
                   ))}
                 </div>
@@ -2582,9 +3865,16 @@ function App() {
                     <p className="eyebrow">Schedule focus timing</p>
                     <h3>Automatic focus windows</h3>
                   </div>
-                  <button className="icon-button" type="button" onClick={armScheduleNotifications} aria-label="Arm schedule notifications" title="Arm schedule notifications">
-                    <BellRing size={19} />
-                  </button>
+                  <div className="native-actions">
+                    {schedules.length > 0 && (
+                      <button className="icon-button subtle" type="button" onClick={clearAllSchedules} aria-label="Delete all schedules" title="Delete all schedules">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    <button className="icon-button" type="button" onClick={armScheduleNotifications} aria-label="Arm schedule notifications" title="Arm schedule notifications">
+                      <BellRing size={19} />
+                    </button>
+                  </div>
                 </div>
                 <div className="schedule-builder">
                   <input
@@ -2638,8 +3928,55 @@ function App() {
                     );
                   })}
                 </div>
+                <div className="schedule-preset-row" aria-label="Schedule presets">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        title: "Study shield",
+                        startTime: "19:00",
+                        endTime: "21:00",
+                        mode: "study",
+                        notifyBefore: 10
+                      }))
+                    }
+                  >
+                    Study 7-9
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        title: "Morning deep work",
+                        startTime: "06:30",
+                        endTime: "08:00",
+                        mode: "deep",
+                        notifyBefore: 5
+                      }))
+                    }
+                  >
+                    Morning
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        title: "Wind down shield",
+                        startTime: "21:00",
+                        endTime: "22:30",
+                        mode: "sleep",
+                        notifyBefore: 15
+                      }))
+                    }
+                  >
+                    Wind down
+                  </button>
+                </div>
                 <div className="schedule-grid">
-                  {(schedules.length ? schedules : seedSchedules()).map((schedule) => (
+                  {schedules.length ? schedules.map((schedule) => (
                     <article className={`schedule-card ${activeSchedule?.id === schedule.id ? "is-live" : ""}`} key={schedule.id}>
                       <div>
                         <CalendarDays size={20} />
@@ -2675,6 +4012,15 @@ function App() {
                       </div>
                       <div className="schedule-actions">
                         <button
+                          className="icon-button subtle"
+                          type="button"
+                          onClick={() => syncScheduleToCalendar(schedule)}
+                          aria-label={`Add ${schedule.title} to calendar`}
+                          title={`Add ${schedule.title} to calendar`}
+                        >
+                          <CalendarPlus size={18} />
+                        </button>
+                        <button
                           className={`pill-toggle ${schedule.enabled ? "locked" : ""}`}
                           type="button"
                           onClick={() =>
@@ -2688,7 +4034,7 @@ function App() {
                         <button
                           className="icon-button subtle"
                           type="button"
-                          onClick={() => setSchedules((current) => current.filter((item) => item.id !== schedule.id))}
+                          onClick={() => deleteSchedule(schedule)}
                           aria-label={`Delete ${schedule.title}`}
                           title={`Delete ${schedule.title}`}
                         >
@@ -2696,7 +4042,199 @@ function App() {
                         </button>
                       </div>
                     </article>
+                  )) : (
+                    <article className="empty-state-card">
+                      <CalendarDays size={19} />
+                      <strong>No schedules</strong>
+                      <span>Add one above.</span>
+                    </article>
+                  )}
+                </div>
+              </section>
+
+              <section className="alarm-panel">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Alarm schedules</p>
+                    <h3>{nextAlarm ? `Next ${formatTime(nextAlarm.next.getTime())}` : "Wake and reset alarms"}</h3>
+                  </div>
+                  <div className="native-actions">
+                    {alarms.length > 0 && (
+                      <button className="icon-button subtle" type="button" onClick={clearAllAlarms} aria-label="Delete all alarms" title="Delete all alarms">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    <button className="icon-button" type="button" onClick={armAlarmNotifications} aria-label="Open next alarm in phone Clock" title="Open next alarm in phone Clock">
+                      <AlarmClock size={19} />
+                    </button>
+                  </div>
+                </div>
+                <div className="alarm-builder">
+                  <input
+                    value={alarmDraft.title}
+                    onChange={(event) => setAlarmDraft((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="Alarm name"
+                  />
+                  <input
+                    type="time"
+                    value={alarmDraft.time}
+                    onChange={(event) => setAlarmDraft((current) => ({ ...current, time: event.target.value }))}
+                  />
+                  <select
+                    value={alarmDraft.sound}
+                    onChange={(event) => setAlarmDraft((current) => ({ ...current, sound: event.target.value as AlarmSchedule["sound"] }))}
+                  >
+                    {alarmRingtones.map((ringtone) => (
+                      <option key={ringtone.id} value={ringtone.id}>{ringtone.label}</option>
+                    ))}
+                  </select>
+                  <button className="icon-button dark" type="button" onClick={addAlarmSchedule} aria-label="Add alarm" title="Add alarm">
+                    <Plus size={20} />
+                  </button>
+                </div>
+                <div className="alarm-preset-row" aria-label="Alarm presets">
+                  {alarmQuickPresets.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setAlarmDraft({
+                          title: preset.title,
+                          time: preset.offsetMinutes
+                            ? formatInputTime(new Date(Date.now() + preset.offsetMinutes * 60000))
+                            : preset.time ?? "06:30",
+                          days: preset.days,
+                          sound: preset.sound
+                        })
+                      }
+                    >
+                      {preset.label}
+                    </button>
                   ))}
+                </div>
+                <div className="alarm-ringtone-strip" aria-label="Alarm ringtones">
+                  {alarmRingtones.map((ringtone) => (
+                    <button
+                      key={ringtone.id}
+                      className={alarmDraft.sound === ringtone.id ? "is-active" : ""}
+                      type="button"
+                      onClick={() => {
+                        setAlarmDraft((current) => ({ ...current, sound: ringtone.id }));
+                        previewAlarmSound(ringtone.id);
+                      }}
+                    >
+                      <BellRing size={15} />
+                      <span>{ringtone.label}</span>
+                      <small>{ringtone.detail}</small>
+                    </button>
+                  ))}
+                </div>
+                <div className="day-picker alarm-day-picker">
+                  {(Object.keys(dayLabels) as Array<`${DayKey}`>).map((day) => {
+                    const value = Number(day) as DayKey;
+                    return (
+                      <button
+                        key={day}
+                        className={alarmDraft.days.includes(value) ? "is-active" : ""}
+                        type="button"
+                        onClick={() => toggleAlarmDraftDay(value)}
+                      >
+                        {dayLabels[value].slice(0, 1)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="alarm-grid">
+                  {alarms.length ? alarms.map((alarm) => {
+                    const next = getNextAlarmDate(alarm);
+                    return (
+                      <article className={`alarm-card ${alarm.enabled ? "is-on" : ""}`} key={alarm.id}>
+                        <div>
+                          <AlarmClock size={19} />
+                          <span>
+                            <strong>{alarm.title}</strong>
+                            <small>{next ? `Next ${formatTime(next.getTime())}` : "No upcoming time"}</small>
+                          </span>
+                          <button
+                            className={`pill-toggle ${alarm.enabled ? "locked" : ""}`}
+                            type="button"
+                            onClick={() => setAlarmEnabled(alarm, !alarm.enabled)}
+                          >
+                            {alarm.enabled ? "On" : "Off"}
+                          </button>
+                        </div>
+                        <div className="schedule-days">
+                          {(Object.keys(dayLabels) as Array<`${DayKey}`>).map((day) => {
+                            const value = Number(day) as DayKey;
+                            return (
+                              <button
+                                key={day}
+                                className={alarm.days.includes(value) ? "is-active" : ""}
+                                type="button"
+                                onClick={() => toggleAlarmDay(alarm.id, value)}
+                              >
+                                {dayLabels[value].slice(0, 1)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="alarm-footer">
+                          <span>{alarm.time} · {getAlarmSoundMeta(alarm.sound).label}</span>
+                          <select
+                            className="alarm-sound-select"
+                            value={alarm.sound}
+                            onChange={(event) => updateAlarmSound(alarm.id, event.target.value as AlarmSound)}
+                            aria-label={`Ringtone for ${alarm.title}`}
+                          >
+                            {alarmRingtones.map((ringtone) => (
+                              <option key={ringtone.id} value={ringtone.id}>{ringtone.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            className="pill-toggle alarm-clock-link"
+                            type="button"
+                            onClick={() => void createPhoneClockAlarm(alarm, { skipUi: false, fallbackToApp: true })}
+                          >
+                            <AlarmClock size={14} />
+                            Clock
+                          </button>
+                          <button
+                            className="icon-button subtle"
+                            type="button"
+                            onClick={() => syncAlarmToCalendar(alarm)}
+                            aria-label={`Add ${alarm.title} to calendar`}
+                            title={`Add ${alarm.title} to calendar`}
+                          >
+                            <CalendarPlus size={18} />
+                          </button>
+                          <button
+                            className="icon-button subtle"
+                            type="button"
+                            onClick={() => void triggerAlarmNow(alarm)}
+                            aria-label={`Test ${alarm.title}`}
+                            title={`Test ${alarm.title}`}
+                          >
+                            <BellRing size={18} />
+                          </button>
+                          <button
+                            className="icon-button subtle"
+                            type="button"
+                            onClick={() => deleteAlarm(alarm)}
+                            aria-label={`Delete ${alarm.title}`}
+                            title={`Delete ${alarm.title}`}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  }) : (
+                    <article className="empty-state-card">
+                      <AlarmClock size={19} />
+                      <strong>No alarms</strong>
+                      <span>Add one above.</span>
+                    </article>
+                  )}
                 </div>
               </section>
 
@@ -2771,8 +4309,8 @@ function App() {
             <>
               <section className="shield-panel">
                 <div>
-                  <p className="eyebrow">Native redirect shield</p>
-                  <h2>{shieldEnabled ? "Distractions return here." : "Choose what gets blocked."}</h2>
+                  <p className="eyebrow">Shield</p>
+                  <h2>{shieldEnabled ? "Redirects stay here." : "Pick blocked apps."}</h2>
                 </div>
                 <div className="shield-actions">
                   <button className="action-button light" type="button" onClick={openAppPicker}>
@@ -2802,12 +4340,12 @@ function App() {
                 <button className="permission-card" type="button" onClick={openAccessibilitySettings}>
                   <Smartphone size={21} />
                   <strong>{nativeStatus.accessibilityEnabled ? "Accessibility ready" : "Enable redirect"}</strong>
-                  <span>{nativeStatus.accessibilityEnabled ? "Locked apps can be sent back." : "Required for real app blocking."}</span>
+                  <span>{nativeStatus.accessibilityEnabled ? "Redirect active." : "Needed for blocking."}</span>
                 </button>
                 <button className="permission-card" type="button" onClick={openUsageSettings}>
                   <History size={21} />
                   <strong>{nativeStatus.usageAccessEnabled ? "Usage ready" : "Enable timers"}</strong>
-                  <span>{nativeStatus.usageAccessEnabled ? "Daily usage timers can run." : "Required for screen-time limits."}</span>
+                  <span>{nativeStatus.usageAccessEnabled ? "Timers active." : "Needed for limits."}</span>
                 </button>
                 <article className="permission-card passive">
                   <Ban size={21} />
@@ -2825,7 +4363,7 @@ function App() {
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">Fast blocks</p>
-                    <h3>One-tap protection</h3>
+                    <h3>Quick blocks</h3>
                   </div>
                   <Zap size={22} />
                 </div>
@@ -2843,7 +4381,7 @@ function App() {
               <section className="website-panel">
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Website blocking</p>
+                    <p className="eyebrow">Websites</p>
                     <h3>{lockedWebsiteTargets.length} sites blocked</h3>
                   </div>
                   <Globe2 size={22} />
@@ -2857,7 +4395,7 @@ function App() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter") addWebsiteTarget();
                       }}
-                      placeholder="youtube.com, instagram.com/reels, reddit.com"
+                      placeholder="youtube.com/shorts or reddit.com"
                     />
                   </label>
                   <button className="action-button" type="button" onClick={() => addWebsiteTarget()}>
@@ -2893,8 +4431,8 @@ function App() {
                   ) : (
                     <article className="empty-state-card">
                       <Globe2 size={19} />
-                      <strong>No websites yet</strong>
-                      <span>Add a site or use a preset above.</span>
+                      <strong>No sites</strong>
+                      <span>Add one above.</span>
                     </article>
                   )}
                 </div>
@@ -2962,7 +4500,7 @@ function App() {
                     return (
                       <article className={`limit-card ${usage?.overLimit ? "is-over" : ""}`} key={target.id}>
                         <div className="limit-head">
-                          <AppWindow size={19} />
+	                          <AppIconMark label={target.label} icon={target.icon} />
                           <div>
                             <strong>{target.label}</strong>
                             <span>{formatMinutes(usage?.minutes ?? 0)} used today</span>
@@ -2999,14 +4537,20 @@ function App() {
                         <div className="goal-track">
                           <span style={{ width: `${progress}%` }} />
                         </div>
-                        <div className="limit-actions">
-                          {reminderActive && <span className="status-pill warn">Reminder soon</span>}
-                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 120, enabled: true })}>
-                            2h
-                          </button>
-                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 60, enabled: true })}>
-                            1h
-                          </button>
+	                        <div className="limit-actions">
+	                          {reminderActive && <span className="status-pill warn">Reminder soon</span>}
+	                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 30, enabled: true })}>
+	                            30m
+	                          </button>
+	                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 60, enabled: true })}>
+	                            1h
+	                          </button>
+	                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 120, enabled: true })}>
+	                            2h
+	                          </button>
+	                          <button className="pill-toggle" type="button" onClick={() => upsertAppLimit(target, { minutes: 180, enabled: true })}>
+	                            3h
+	                          </button>
                           {limit && (
                             <button className="icon-button subtle" type="button" onClick={() => removeAppLimit(target.packageName)} aria-label={`Remove limit for ${target.label}`} title={`Remove limit for ${target.label}`}>
                               <Trash2 size={18} />
@@ -3025,9 +4569,9 @@ function App() {
             <section className="ai-panel">
               <div className="ai-hero">
                 <div>
-                  <p className="eyebrow">{import.meta.env.VITE_AI_ENDPOINT ? "Connected AI" : "Local AI engine"}</p>
+                  <p className="eyebrow">{import.meta.env.VITE_AI_ENDPOINT ? "Connected AI" : "Local AI"}</p>
                   <h2>{aiThinking ? "Thinking..." : aiStateLabel}</h2>
-                  <span>Understands blocks, limits, schedules, app bundles, and screen-time context.</span>
+                  <span>Voice, alarms, schedules, blocks.</span>
                 </div>
                 <div className="ai-risk-dial">
                   <strong>{aiAttentionRisk}</strong>
@@ -3040,7 +4584,7 @@ function App() {
                   <div className="section-heading compact-heading">
                     <div>
                       <p className="eyebrow">Command</p>
-                      <h3>Ask for a change</h3>
+                      <h3>Command</h3>
                     </div>
                     <BrainCircuit size={22} />
                   </div>
@@ -3070,8 +4614,17 @@ function App() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter") void handleAiSubmit();
                       }}
-                      placeholder="Block shorts, limit YouTube to 2 hours, schedule study 7pm to 9pm"
+                      placeholder="Set alarm 6:30am, block shorts, schedule 7-9pm"
                     />
+                    <button
+                      className={`icon-button ${voiceListening ? "dark" : ""}`}
+                      type="button"
+                      onClick={startVoiceCommand}
+                      aria-label={voiceListening ? "Stop voice command" : "Start voice command"}
+                      title={voiceListening ? "Stop voice command" : "Start voice command"}
+                    >
+                      {voiceListening ? <MicOff size={20} /> : <Mic size={20} />}
+                    </button>
                     <button className="icon-button dark" type="button" onClick={() => void handleAiSubmit()} disabled={aiThinking} aria-label="Send to AI" title="Send to AI">
                       {aiThinking ? <RefreshCw size={20} /> : <ChevronRight size={21} />}
                     </button>
@@ -3099,7 +4652,7 @@ function App() {
                   <div className="section-heading compact-heading">
                     <div>
                       <p className="eyebrow">Autopilot</p>
-                      <h3>Recommended actions</h3>
+                      <h3>Actions</h3>
                     </div>
                     <Target size={22} />
                   </div>
@@ -3125,6 +4678,23 @@ function App() {
                     </button>
                     <button className="icon-button" type="button" onClick={openAppPicker} aria-label="Open app picker" title="Open app picker">
                       <AppWindow size={18} />
+                    </button>
+                  </div>
+                  <div className="ai-bridge-panel">
+                    <div>
+                      <MessageSquareText size={18} />
+                      <span>
+                        <strong>ChatGPT bridge</strong>
+                        <small>{sharedCommandText ? "Imported" : "Share text"}</small>
+                      </span>
+                    </div>
+                    <button className="pill-toggle" type="button" onClick={copyChatGptBridgePrompt}>
+                      <Copy size={14} />
+                      Prompt
+                    </button>
+                    <button className="pill-toggle locked" type="button" onClick={() => void importSharedCommandText()}>
+                      <ChevronRight size={14} />
+                      Import
                     </button>
                   </div>
                 </aside>
@@ -3214,7 +4784,7 @@ function App() {
               <section className="usage-panel">
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Native screen-time history</p>
+                    <p className="eyebrow">Screen time</p>
                     <h3>Today by app</h3>
                   </div>
                   <div className="native-actions">
@@ -3295,7 +4865,7 @@ function App() {
                       <User size={19} />
                       <span>
                         <strong>{profile.accountConnected ? "Profile connected" : "Local profile"}</strong>
-                        <small>{profile.accountConnected ? profile.accountEmail || "Signed in" : "Connect for sync-ready settings"}</small>
+                        <small>{profile.accountConnected ? profile.accountEmail || "Signed in" : "Sync-ready"}</small>
                       </span>
                     </div>
                     <input
@@ -3336,8 +4906,8 @@ function App() {
                   </article>
                   <article>
                     <User size={18} />
-                    <strong>{profile.accountConnected ? "Connected" : "Local"}</strong>
-                    <span>account</span>
+                    <strong>{profile.calendarConnected ? "Connected" : "Local"}</strong>
+                    <span>calendar</span>
                   </article>
                 </div>
               </section>
@@ -3347,7 +4917,7 @@ function App() {
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">Theme</p>
-                    <h3>Choose mood</h3>
+                    <h3>Themes</h3>
                   </div>
                   <Palette size={23} />
                 </div>
@@ -3375,7 +4945,7 @@ function App() {
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">Goals</p>
-                    <h3>Focus targets</h3>
+                    <h3>Targets</h3>
                   </div>
                   <BarChart3 size={23} />
                 </div>
@@ -3423,7 +4993,7 @@ function App() {
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">Experience</p>
-                    <h3>Flow controls</h3>
+                    <h3>Controls</h3>
                   </div>
                   <SlidersHorizontal size={23} />
                 </div>
@@ -3437,12 +5007,44 @@ function App() {
                     />
                   </label>
                   <label className="switch-card">
+                    <span>Performance mode</span>
+                    <input
+                      type="checkbox"
+                      checked={profile.performanceMode ?? true}
+                      onChange={(event) => setProfile((current) => ({ ...current, performanceMode: event.target.checked }))}
+                    />
+                  </label>
+                  <label className="switch-card">
+                    <span>Sound effects</span>
+                    <input
+                      type="checkbox"
+                      checked={profile.soundEffects ?? true}
+                      onChange={(event) => setProfile((current) => ({ ...current, soundEffects: event.target.checked }))}
+                    />
+                  </label>
+                  <label className="switch-card">
                     <span>Reduce motion</span>
                     <input
                       type="checkbox"
                       checked={profile.reduceMotion}
                       onChange={(event) => setProfile((current) => ({ ...current, reduceMotion: event.target.checked }))}
                     />
+                  </label>
+                  <label className="settings-field">
+                    <span>UI mode</span>
+                    <select
+                      value={profile.uiMode ?? "standard"}
+                      onChange={(event) =>
+                        setProfile((current) => ({
+                          ...current,
+                          uiMode: event.target.value as UiMode
+                        }))
+                      }
+                    >
+                      <option value="standard">Standard</option>
+                      <option value="zen">Zen</option>
+                      <option value="commander">Commander</option>
+                    </select>
                   </label>
                   <label className="settings-field">
                     <span>Focus sound</span>
@@ -3467,8 +5069,8 @@ function App() {
               <section className="system-panel">
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Native features</p>
-                    <h3>APK controls</h3>
+                    <p className="eyebrow">Native</p>
+                    <h3>APK</h3>
                   </div>
                   <Layers3 size={23} />
                 </div>
@@ -3476,17 +5078,32 @@ function App() {
                   <button className="system-card" type="button" onClick={openAccessibilitySettings}>
                     <Smartphone size={21} />
                     <strong>{nativeStatus.accessibilityEnabled ? "Accessibility ready" : "Enable app redirect"}</strong>
-                    <span>Required to send locked apps back here.</span>
+                    <span>Redirects locked apps.</span>
                   </button>
                   <button className="system-card" type="button" onClick={openUsageSettings}>
                     <History size={21} />
                     <strong>{nativeStatus.usageAccessEnabled ? "Usage access ready" : "Enable usage history"}</strong>
-                    <span>Required for screen-time charts and daily app timers.</span>
+                    <span>Screen-time stats.</span>
                   </button>
                   <button className="system-card" type="button" onClick={armScheduleNotifications}>
                     <BellRing size={21} />
                     <strong>Arm schedule alerts</strong>
-                    <span>{schedules.filter((schedule) => schedule.enabled).length} active windows.</span>
+                    <span>{schedules.filter((schedule) => schedule.enabled).length} active</span>
+                  </button>
+                  <button className="system-card" type="button" onClick={syncNextCalendarItem}>
+                    <CalendarPlus size={21} />
+                    <strong>Calendar sync</strong>
+                    <span>Next focus window or alarm.</span>
+                  </button>
+                  <button className="system-card" type="button" onClick={() => void refreshCalendarEvents(true)}>
+                    <RefreshCw size={21} />
+                    <strong>{calendarSyncing ? "Syncing calendar" : "Import calendar"}</strong>
+                    <span>{calendarEvents.length} events</span>
+                  </button>
+                  <button className="system-card" type="button" onClick={() => void openClockManager()}>
+                    <AlarmClock size={21} />
+                    <strong>Clock manager</strong>
+                    <span>Review alarms.</span>
                   </button>
                 </div>
               </section>
@@ -3507,7 +5124,8 @@ function App() {
             <div className="app-picker-head">
               <div>
                 <p className="eyebrow">App picker</p>
-                <h3>Choose what Shield blocks</h3>
+                <h3>Select apps</h3>
+                <span>{targets.filter((target) => target.locked && target.kind === "app").length} blocked now</span>
               </div>
               <button className="icon-button" type="button" onClick={() => setAppPickerOpen(false)} aria-label="Close app picker" title="Close app picker">
                 <X size={20} />
@@ -3520,7 +5138,7 @@ function App() {
                 <input
                   value={installedSearch}
                   onChange={(event) => setInstalledSearch(event.target.value)}
-                  placeholder="Search app name, package, shorts, games..."
+                  placeholder="Search apps"
                   autoFocus
                 />
               </label>
@@ -3581,9 +5199,10 @@ function App() {
                       current.map((item) => item.id === target.id ? { ...item, locked: false } : item)
                     )
                   }
-                >
-                  <CheckCircle2 size={15} />
-                  <span>{target.label}</span>
+	                >
+	                  <CheckCircle2 size={15} />
+	                  <AppIconMark label={target.label} icon={target.icon} className="chip-app-icon" />
+	                  <span>{target.label}</span>
                   {target.supportsPiP && <small>PiP</small>}
                   <X size={14} />
                 </button>
@@ -3623,11 +5242,18 @@ function App() {
                       checked={locked}
                       onChange={(event) => setAppLocked(app, event.target.checked)}
                     />
-                    <AppWindow size={18} />
-                    <span>
+                    {app.icon ? (
+                      <img className="app-real-icon" src={app.icon} alt="" loading="lazy" />
+                    ) : (
+                      <span className="app-tile-icon" aria-hidden="true">
+                        {app.label.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    <span className="app-tile-copy">
                       <strong>{app.label}</strong>
-                      <small>{app.category} · {app.packageName}</small>
+                      <small>{app.category}{app.supportsPiP ? " · PiP" : ""}</small>
                     </span>
+                    <CheckCircle2 className="app-tile-check" size={18} />
                     <em>
                       {app.supportsPiP && <b>PiP</b>}
                       {locked && <b>Blocked</b>}
@@ -3677,7 +5303,7 @@ function App() {
   );
 }
 
-function TimerPanel({
+const TimerPanel = memo(function TimerPanel({
   timerLabel,
   timerRunning,
   focusMinutes,
@@ -3713,6 +5339,18 @@ function TimerPanel({
           <LockKeyhole size={20} />
         </button>
       </div>
+      <div className="timer-presets" aria-label="Timer presets">
+        {[15, 25, 35, 50].map((minutes) => (
+          <button
+            key={minutes}
+            className={focusMinutes === minutes ? "is-active" : ""}
+            type="button"
+            onClick={() => onMinutesChange(minutes)}
+          >
+            {minutes}m
+          </button>
+        ))}
+      </div>
       <label className="slider-row">
         <span>{focusMinutes} min</span>
         <input
@@ -3726,9 +5364,9 @@ function TimerPanel({
       </label>
     </section>
   );
-}
+});
 
-function BlockCard({
+const BlockCard = memo(function BlockCard({
   block,
   isSessionBlock,
   onToggle,
@@ -3772,9 +5410,19 @@ function BlockCard({
       </div>
     </article>
   );
-}
+});
 
-function TargetCard({
+const AppIconMark = memo(function AppIconMark({ label, icon, className = "" }: { label: string; icon?: string; className?: string }) {
+  return icon ? (
+    <img className={`app-inline-icon ${className}`} src={icon} alt="" loading="lazy" />
+  ) : (
+    <span className={`app-inline-icon fallback ${className}`} aria-hidden="true">
+      {label.slice(0, 1).toUpperCase()}
+    </span>
+  );
+});
+
+const TargetCard = memo(function TargetCard({
   target,
   sessionActive,
   onAttempt,
@@ -3792,7 +5440,7 @@ function TargetCard({
   return (
     <div className={`target-card ${nativeReady ? "native-ready" : ""}`}>
       <button className="target-icon" type="button" onClick={onAttempt} aria-label={`Open ${target.label}`} title={`Open ${target.label}`}>
-        {target.kind === "site" ? <Globe2 size={18} /> : <AppWindow size={18} />}
+        {target.kind === "site" ? <Globe2 size={18} /> : <AppIconMark label={target.label} icon={target.icon} />}
       </button>
       <div className="target-meta">
         <strong>{target.label}</strong>
@@ -3816,9 +5464,9 @@ function TargetCard({
       </button>
     </div>
   );
-}
+});
 
-function FocusLogPanel({ logs }: { logs: FocusLog[] }) {
+const FocusLogPanel = memo(function FocusLogPanel({ logs }: { logs: FocusLog[] }) {
   return (
     <section className="log-panel">
       <div className="section-heading">
@@ -3849,9 +5497,9 @@ function FocusLogPanel({ logs }: { logs: FocusLog[] }) {
       </div>
     </section>
   );
-}
+});
 
-function MetricCard({
+const MetricCard = memo(function MetricCard({
   icon: Icon,
   label,
   value,
@@ -3869,6 +5517,6 @@ function MetricCard({
       <small>{label}</small>
     </article>
   );
-}
+});
 
 export default App;

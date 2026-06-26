@@ -1,6 +1,10 @@
 package com.neuroquest.remindblocks;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.app.AppOpsManager;
@@ -10,17 +14,28 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Process;
+import android.provider.AlarmClock;
+import android.provider.CalendarContract;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Base64;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import org.json.JSONArray;
 
@@ -31,10 +46,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.text.SimpleDateFormat;
+import java.io.ByteArrayOutputStream;
 import java.util.Locale;
+import java.util.TimeZone;
 
-@CapacitorPlugin(name = "FocusBlocker")
+@CapacitorPlugin(
+    name = "FocusBlocker",
+    permissions = @Permission(
+        alias = "calendar",
+        strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR }
+    )
+)
 public class FocusBlockerPlugin extends Plugin {
+    public static final String CALENDAR_PERMISSION = "calendar";
     public static final String PREFS = "focus_blocker_prefs";
     public static final String KEY_ENABLED = "enabled";
     public static final String KEY_STRICT = "strict";
@@ -102,6 +126,10 @@ public class FocusBlockerPlugin extends Plugin {
             app.put("packageName", packageName);
             app.put("category", getCategoryLabel(info.activityInfo.applicationInfo));
             app.put("supportsPiP", supportsPictureInPicture(info.activityInfo));
+            String icon = getAppIconDataUri(info, packageManager);
+            if (!icon.isEmpty()) {
+                app.put("icon", icon);
+            }
             apps.add(app);
         }
 
@@ -125,10 +153,293 @@ public class FocusBlockerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setPhoneAlarm(PluginCall call) {
+        String title = call.getString("title", "Sine Inverse alarm");
+        String time = call.getString("time", "06:30");
+        JSArray daysArray = call.getArray("days", new JSArray());
+        boolean skipUi = Boolean.TRUE.equals(call.getBoolean("skipUi", true));
+
+        String[] parts = time.split(":");
+        int hour;
+        int minute;
+        try {
+            hour = Integer.parseInt(parts[0]);
+            minute = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+        } catch (Exception exception) {
+            call.reject("Invalid alarm time");
+            return;
+        }
+
+        Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+        intent.putExtra(AlarmClock.EXTRA_MESSAGE, title);
+        intent.putExtra(AlarmClock.EXTRA_HOUR, Math.max(0, Math.min(23, hour)));
+        intent.putExtra(AlarmClock.EXTRA_MINUTES, Math.max(0, Math.min(59, minute)));
+        intent.putExtra(AlarmClock.EXTRA_VIBRATE, true);
+        intent.putExtra(AlarmClock.EXTRA_SKIP_UI, skipUi);
+        ArrayList<Integer> clockDays = toClockDays(daysArray);
+        if (!clockDays.isEmpty()) {
+            intent.putExtra(AlarmClock.EXTRA_DAYS, clockDays);
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        PackageManager packageManager = getContext().getPackageManager();
+        List<ResolveInfo> clockApps = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        if (clockApps.isEmpty()) {
+            call.reject("No Android Clock app is available for alarms");
+            return;
+        }
+
+        try {
+            getContext().startActivity(intent);
+            JSObject response = new JSObject();
+            response.put("opened", true);
+            response.put("skipUi", skipUi);
+            call.resolve(response);
+        } catch (Exception exception) {
+            call.reject("Could not open the Android Clock alarm screen");
+        }
+    }
+
+    @PluginMethod
+    public void openClockAlarms(PluginCall call) {
+        Intent intent = new Intent(AlarmClock.ACTION_SHOW_ALARMS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception exception) {
+            call.reject("Could not open Android Clock");
+        }
+    }
+
+    @PluginMethod
+    public void dismissPhoneAlarm(PluginCall call) {
+        String title = call.getString("title", "");
+        String time = call.getString("time", "");
+        Intent intent = new Intent(AlarmClock.ACTION_DISMISS_ALARM);
+        if (!title.isEmpty()) {
+            intent.putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_LABEL);
+            intent.putExtra(AlarmClock.EXTRA_MESSAGE, title);
+        } else if (!time.isEmpty()) {
+            String[] parts = time.split(":");
+            try {
+                intent.putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_TIME);
+                intent.putExtra(AlarmClock.EXTRA_HOUR, Integer.parseInt(parts[0]));
+                intent.putExtra(AlarmClock.EXTRA_MINUTES, parts.length > 1 ? Integer.parseInt(parts[1]) : 0);
+            } catch (Exception ignored) {
+                intent.putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_NEXT);
+            }
+        } else {
+            intent.putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_NEXT);
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception exception) {
+            call.reject("Could not dismiss matching Android Clock alarm");
+        }
+    }
+
+    @PluginMethod
     public void openUsageSettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openCalendarEvent(PluginCall call) {
+        String title = call.getString("title", "Sine Inverse focus");
+        String description = call.getString("description", "Created by Sine Inverse");
+        long startAt = getLongValue(call, "startAt", System.currentTimeMillis());
+        long endAt = getLongValue(call, "endAt", startAt + 3600000L);
+
+        Intent intent = new Intent(Intent.ACTION_INSERT)
+            .setData(CalendarContract.Events.CONTENT_URI)
+            .putExtra(CalendarContract.Events.TITLE, title)
+            .putExtra(CalendarContract.Events.DESCRIPTION, description)
+            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startAt)
+            .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, Math.max(startAt + 60000L, endAt));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        try {
+            getContext().startActivity(intent);
+            JSObject response = new JSObject();
+            response.put("opened", true);
+            call.resolve(response);
+        } catch (Exception exception) {
+            call.reject("Could not open Calendar");
+        }
+    }
+
+    @PluginMethod
+    public void requestCalendarAccess(PluginCall call) {
+        if (getPermissionState(CALENDAR_PERMISSION) == PermissionState.GRANTED) {
+            resolveCalendarPermission(call);
+            return;
+        }
+        requestPermissionForAlias(CALENDAR_PERMISSION, call, "calendarPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void calendarPermissionCallback(PluginCall call) {
+        resolveCalendarPermission(call);
+    }
+
+    @PluginMethod
+    public void checkCalendarAccess(PluginCall call) {
+        resolveCalendarPermission(call);
+    }
+
+    @PluginMethod
+    public void listCalendarEvents(PluginCall call) {
+        if (!hasCalendarPermission()) {
+            call.reject("Calendar permission required");
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long startAt = getLongValue(call, "startAt", now);
+        long endAt = getLongValue(call, "endAt", now + 14L * 24L * 60L * 60L * 1000L);
+        Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
+        ContentUris.appendId(builder, startAt);
+        ContentUris.appendId(builder, endAt);
+
+        String[] projection = {
+            CalendarContract.Instances.EVENT_ID,
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.DESCRIPTION,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
+            CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.CALENDAR_DISPLAY_NAME
+        };
+        JSArray events = new JSArray();
+        try (Cursor cursor = getContext().getContentResolver().query(
+            builder.build(),
+            projection,
+            null,
+            null,
+            CalendarContract.Instances.BEGIN + " ASC"
+        )) {
+            if (cursor != null) {
+                while (cursor.moveToNext() && events.length() < 80) {
+                    JSObject event = new JSObject();
+                    event.put("eventId", cursor.getLong(0));
+                    event.put("title", cursor.getString(1) == null ? "Calendar event" : cursor.getString(1));
+                    event.put("description", cursor.getString(2) == null ? "" : cursor.getString(2));
+                    event.put("startAt", cursor.getLong(3));
+                    event.put("endAt", cursor.getLong(4));
+                    event.put("allDay", cursor.getInt(5) == 1);
+                    event.put("calendarName", cursor.getString(6) == null ? "Calendar" : cursor.getString(6));
+                    events.put(event);
+                }
+            }
+            JSObject response = new JSObject();
+            response.put("events", events);
+            call.resolve(response);
+        } catch (Exception exception) {
+            call.reject("Could not read Calendar events");
+        }
+    }
+
+    @PluginMethod
+    public void saveCalendarEvent(PluginCall call) {
+        if (!hasCalendarPermission()) {
+            call.reject("Calendar permission required");
+            return;
+        }
+
+        long eventId = getLongValue(call, "eventId", 0L);
+        long startAt = getLongValue(call, "startAt", System.currentTimeMillis());
+        long endAt = getLongValue(call, "endAt", startAt + 3600000L);
+        String title = call.getString("title", "Sine Inverse focus");
+        String description = call.getString("description", "Created by Sine Inverse");
+
+        ContentValues values = new ContentValues();
+        values.put(CalendarContract.Events.TITLE, title);
+        values.put(CalendarContract.Events.DESCRIPTION, description);
+        values.put(CalendarContract.Events.DTSTART, startAt);
+        values.put(CalendarContract.Events.DTEND, Math.max(startAt + 60000L, endAt));
+        values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+
+        ContentResolver resolver = getContext().getContentResolver();
+        try {
+            if (eventId > 0) {
+                int updated = resolver.update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), values, null, null);
+                if (updated > 0) {
+                    JSObject response = new JSObject();
+                    response.put("eventId", eventId);
+                    response.put("updated", true);
+                    call.resolve(response);
+                    return;
+                }
+            }
+
+            long calendarId = getWritableCalendarId();
+            if (calendarId <= 0) {
+                call.reject("No writable Calendar found");
+                return;
+            }
+            values.put(CalendarContract.Events.CALENDAR_ID, calendarId);
+            Uri eventUri = resolver.insert(CalendarContract.Events.CONTENT_URI, values);
+            if (eventUri == null || eventUri.getLastPathSegment() == null) {
+                call.reject("Could not create Calendar event");
+                return;
+            }
+            JSObject response = new JSObject();
+            response.put("eventId", Long.parseLong(eventUri.getLastPathSegment()));
+            response.put("updated", false);
+            call.resolve(response);
+        } catch (Exception exception) {
+            call.reject("Could not save Calendar event");
+        }
+    }
+
+    @PluginMethod
+    public void deleteCalendarEvent(PluginCall call) {
+        if (!hasCalendarPermission()) {
+            call.reject("Calendar permission required");
+            return;
+        }
+        long eventId = getLongValue(call, "eventId", 0L);
+        if (eventId <= 0) {
+            JSObject response = new JSObject();
+            response.put("deleted", false);
+            call.resolve(response);
+            return;
+        }
+
+        try {
+            int deleted = getContext().getContentResolver().delete(
+                ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+                null,
+                null
+            );
+            JSObject response = new JSObject();
+            response.put("deleted", deleted > 0);
+            call.resolve(response);
+        } catch (Exception exception) {
+            call.reject("Could not delete Calendar event");
+        }
+    }
+
+    @PluginMethod
+    public void getSharedText(PluginCall call) {
+        Intent intent = getActivity() == null ? null : getActivity().getIntent();
+        JSObject response = new JSObject();
+        response.put("text", extractSharedText(intent));
+        call.resolve(response);
+    }
+
+    @PluginMethod
+    public void clearSharedText(PluginCall call) {
+        if (getActivity() != null) {
+            Intent cleanIntent = new Intent(getContext(), MainActivity.class);
+            getActivity().setIntent(cleanIntent);
+        }
         call.resolve();
     }
 
@@ -226,6 +537,63 @@ public class FocusBlockerPlugin extends Plugin {
         return fallback;
     }
 
+    private void resolveCalendarPermission(PluginCall call) {
+        JSObject response = new JSObject();
+        response.put("calendar", hasCalendarPermission() ? "granted" : "denied");
+        call.resolve(response);
+    }
+
+    private boolean hasCalendarPermission() {
+        return getPermissionState(CALENDAR_PERMISSION) == PermissionState.GRANTED;
+    }
+
+    private long getWritableCalendarId() {
+        String[] projection = {
+            CalendarContract.Calendars._ID,
+            CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
+        };
+        String selection = CalendarContract.Calendars.VISIBLE + " = 1 AND " +
+            CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + " >= ?";
+        String[] args = { String.valueOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) };
+
+        try (Cursor cursor = getContext().getContentResolver().query(
+            CalendarContract.Calendars.CONTENT_URI,
+            projection,
+            selection,
+            args,
+            CalendarContract.Calendars.IS_PRIMARY + " DESC"
+        )) {
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getLong(0);
+            }
+        } catch (Exception ignored) {
+        }
+        return -1L;
+    }
+
+    private String extractSharedText(Intent intent) {
+        if (intent == null) {
+            return "";
+        }
+
+        String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action)) {
+            CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+            return text == null ? "" : text.toString();
+        }
+
+        if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
+            CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
+            return text == null ? "" : text.toString();
+        }
+
+        if (Intent.ACTION_VIEW.equals(action) && intent.getDataString() != null) {
+            return intent.getDataString();
+        }
+
+        return "";
+    }
+
     private int countTargets(String targets) {
         try {
             return new JSONArray(targets).length();
@@ -286,6 +654,69 @@ public class FocusBlockerPlugin extends Plugin {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private String getAppIconDataUri(ResolveInfo info, PackageManager packageManager) {
+        try {
+            Drawable drawable = info.loadIcon(packageManager);
+            if (drawable == null) {
+                return "";
+            }
+
+            int size = 72;
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, size, size);
+            drawable.draw(canvas);
+
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 92, output);
+            bitmap.recycle();
+            return "data:image/png;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private ArrayList<Integer> toClockDays(JSArray daysArray) {
+        ArrayList<Integer> clockDays = new ArrayList<>();
+        if (daysArray == null) {
+            return clockDays;
+        }
+
+        for (int i = 0; i < daysArray.length(); i++) {
+            int day = daysArray.optInt(i, 0);
+            int clockDay = 0;
+            switch (day) {
+                case 1:
+                    clockDay = Calendar.MONDAY;
+                    break;
+                case 2:
+                    clockDay = Calendar.TUESDAY;
+                    break;
+                case 3:
+                    clockDay = Calendar.WEDNESDAY;
+                    break;
+                case 4:
+                    clockDay = Calendar.THURSDAY;
+                    break;
+                case 5:
+                    clockDay = Calendar.FRIDAY;
+                    break;
+                case 6:
+                    clockDay = Calendar.SATURDAY;
+                    break;
+                case 7:
+                    clockDay = Calendar.SUNDAY;
+                    break;
+                default:
+                    break;
+            }
+            if (clockDay != 0 && !clockDays.contains(clockDay)) {
+                clockDays.add(clockDay);
+            }
+        }
+        return clockDays;
     }
 
     private String getCategoryLabel(ApplicationInfo info) {
