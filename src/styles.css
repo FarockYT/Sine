@@ -8490,6 +8490,22 @@ svg {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 
+.device-card.sync-toggle-card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.device-card.sync-toggle-card input {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--mint);
+}
+
+.pc-guard-card {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--mint) 12%, transparent), transparent 64%),
+    var(--surface);
+}
+
 .device-card svg,
 .device-import-card > span,
 .cloud-key-card > span {
@@ -8581,6 +8597,11 @@ svg {
 
   .device-card.cloud-card {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .device-card.sync-toggle-card,
+  .device-card.pc-command-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .device-card.cloud-card .pill-toggle {

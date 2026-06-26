@@ -21,7 +21,7 @@ The production site is generated in `dist/` and includes a PWA service worker. O
 
 ## Cloud Sync
 
-The Settings tab includes `PC + phone` controls for APK download, manual sync codes, and cloud storage. Cloud sync uses the Vercel serverless endpoint at `/api/cloud-sync`.
+The Settings tab includes `PC + phone` controls for APK download, PC Guard download, manual sync codes, and cloud storage. Cloud sync uses the Vercel serverless endpoint at `/api/cloud-sync`. When `Always synced` is enabled, the app loads from cloud on startup, saves edits after a short debounce, and refreshes in the background.
 
 Recommended on Vercel: connect a Vercel Blob store to the project. The endpoint stores each Cloud ID as a private JSON blob and automatically uses Blob before Redis/KV when Blob env vars are present. Set `SINE_SYNC_BACKEND=redis` if you want to force the Vercel KV/Upstash backend instead.
 
@@ -50,6 +50,16 @@ KV_REST_API_TOKEN=...
 `KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, and `REDIS_URL` are not required by the Sine Inverse sync endpoint. Save/load needs the REST URL plus the write token, and those real values should live in Vercel environment variables instead of source control.
 
 Use the same Cloud ID on the PC website and Android APK, then tap `Save` on one device and `Load` on the other.
+
+## PC Guard
+
+The desktop companion lives in `desktop/` and can be downloaded from `/downloads/sine-inverse-pc-guard.zip` after running `npm run pc:pack`.
+
+```bash
+npm run pc:guard -- --endpoint https://your-site.vercel.app/api/cloud-sync --cloud-id YOUR_CLOUD_ID --enforce
+```
+
+PC Guard pulls the same Cloud ID rules, watches desktop processes, tracks local daily app-limit usage, and closes matched blocked apps when `--enforce` is enabled. Use exact process names such as `discord.exe`, `steam.exe`, `Spotify.exe`, or `chrome.exe` as custom Shield apps for the strongest PC matching.
 
 ## Android APK
 
@@ -93,6 +103,8 @@ To enable native app blocking, screen-time history, and app limits on Android:
 - Smarter local AI commands for blocking bundles, setting daily limits, creating scheduled focus windows, and turning prompts into reminder blocks.
 - AI command center with dynamic attention-risk scoring, autopilot recommendations, quick actions, and optional hosted AI replies through `VITE_AI_ENDPOINT`.
 - Full PC web layout with desktop navigation, wide dashboard sections, APK download, cloud Save/Load, and manual sync-code transfer between PC and phone.
+- Always-on cloud sync for PC web, Android APK, and the PC Guard companion.
+- PC Guard desktop companion with Cloud ID rule pull, process blocking, daily limit enforcement, and optional hosts-file website blocking.
 
 ## AI Engine
 

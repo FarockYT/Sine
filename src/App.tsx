@@ -188,6 +188,7 @@ type ProfileSettings = {
   compactMode: boolean;
   performanceMode: boolean;
   soundEffects: boolean;
+  autoCloudSync: boolean;
   reduceMotion: boolean;
 };
 
@@ -726,6 +727,7 @@ const seedProfile = (): ProfileSettings => ({
   compactMode: false,
   performanceMode: true,
   soundEffects: true,
+  autoCloudSync: true,
   reduceMotion: false
 });
 
@@ -1427,6 +1429,7 @@ function App() {
   const [sharedCommandText, setSharedCommandText] = useState("");
   const [deviceSyncInput, setDeviceSyncInput] = useState("");
   const [deviceSyncStatus, setDeviceSyncStatus] = useState("Ready");
+  const [pcGuardStatus, setPcGuardStatus] = useState("Ready");
   const [cloudSyncKey, setCloudSyncKey] = useState(() =>
     readJson(storageKeys.cloudSyncKey, "")
   );
@@ -1447,6 +1450,11 @@ function App() {
   const alarmStopTimeoutRef = useRef<number | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const lastSharedTextRef = useRef("");
+  const cloudSyncBusyRef = useRef(false);
+  const cloudApplyingRef = useRef(false);
+  const cloudLastSyncedAtRef = useRef(cloudLastSyncedAt);
+  const syncFingerprintRef = useRef("");
+  const autoSyncBootedRef = useRef(false);
 
   const completedCount = blocks.filter((block) => block.completed).length;
   const activeBlocks = blocks.filter((block) => !block.completed);
@@ -1682,12 +1690,11 @@ function App() {
       warnAt: limit.warnAt
     }));
 
-  const syncPayload = useMemo(
+  const syncSnapshot = useMemo(
     () =>
       ({
         version: 1,
         source: "sine-inverse",
-        updatedAt: Date.now(),
         blocks,
         targets: targets.map((target) => ({
           id: target.id,
@@ -1713,6 +1720,14 @@ function App() {
       }),
     [alarms, appLimits, blocks, focusMinutes, focusMode, profile, schedules, shieldEnabled, strictMode, targets]
   );
+  const syncPayload = useMemo(
+    () => ({
+      ...syncSnapshot,
+      updatedAt: Date.now()
+    }),
+    [syncSnapshot]
+  );
+  const syncFingerprint = useMemo(() => JSON.stringify(syncSnapshot), [syncSnapshot]);
   const deviceSyncCode = useMemo(() => encodeSyncCode(syncPayload), [syncPayload]);
 
   const focusScore = useMemo(() => {
@@ -1750,6 +1765,7 @@ function App() {
   }, [cloudSyncKey]);
 
   useEffect(() => {
+    cloudLastSyncedAtRef.current = cloudLastSyncedAt;
     localStorage.setItem(storageKeys.cloudLastSyncedAt, JSON.stringify(cloudLastSyncedAt));
   }, [cloudLastSyncedAt]);
 
@@ -3487,9 +3503,37 @@ function App() {
     }
   };
 
-  const applySyncPayload = (payload: Record<string, unknown>) => {
+  const getCloudSyncKey = () => (cloudSyncKey.trim() || profile.accountEmail.trim()).trim();
+
+  const getCloudSyncEndpoint = () => {
+    const endpoint = import.meta.env.VITE_CLOUD_SYNC_ENDPOINT || "/api/cloud-sync";
+    if (/^https?:\/\//i.test(endpoint)) return endpoint;
+    const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    return `${window.location.origin}${path}`;
+  };
+
+  const quoteCommandValue = (value: string) => `"${value.replace(/"/g, '\\"')}"`;
+
+  const copyPcGuardCommand = async () => {
+    const cloudId = getCloudSyncKey() || "YOUR_CLOUD_ID";
+    const command = `node sine-inverse-pc-guard.mjs --endpoint ${quoteCommandValue(getCloudSyncEndpoint())} --cloud-id ${quoteCommandValue(cloudId)} --enforce`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setPcGuardStatus("Command copied");
+      addFocusLog("PC Guard ready", "Start command copied.", "mint");
+    } catch {
+      setPcGuardStatus("Copy failed");
+      addFocusLog("PC Guard command", command, "gold");
+    }
+  };
+
+  const applySyncPayload = (payload: Record<string, unknown>, options?: { fromCloud?: boolean }) => {
     if (payload.source !== "sine-inverse" || payload.version !== 1) {
       throw new Error("Unknown sync payload");
+    }
+
+    if (options?.fromCloud) {
+      cloudApplyingRef.current = true;
     }
 
     if (Array.isArray(payload.blocks)) setBlocks(payload.blocks as ReminderBlock[]);
@@ -3511,6 +3555,12 @@ function App() {
         accountConnected: true
       }));
     }
+
+    if (options?.fromCloud) {
+      window.setTimeout(() => {
+        cloudApplyingRef.current = false;
+      }, 1600);
+    }
   };
 
   const importDeviceSyncCode = () => {
@@ -3526,18 +3576,18 @@ function App() {
     }
   };
 
-  const getCloudSyncKey = () => (cloudSyncKey.trim() || profile.accountEmail.trim()).trim();
-
-  const pushCloudSync = async () => {
+  const pushCloudSync = async (quiet = false) => {
     const key = getCloudSyncKey();
     if (!key) {
       setCloudSyncStatus("Add cloud ID");
-      addFocusLog("Cloud ID needed", "Enter an email or private sync name.", "gold");
+      if (!quiet) addFocusLog("Cloud ID needed", "Enter an email or private sync name.", "gold");
       return;
     }
 
+    if (cloudSyncBusyRef.current) return;
+    cloudSyncBusyRef.current = true;
     setCloudSyncing(true);
-    setCloudSyncStatus("Saving...");
+    setCloudSyncStatus(quiet ? "Auto saving..." : "Saving...");
     try {
       const response = await fetch(import.meta.env.VITE_CLOUD_SYNC_ENDPOINT || "/api/cloud-sync", {
         method: "POST",
@@ -3553,31 +3603,36 @@ function App() {
       if (!response.ok || !body.ok) throw new Error(body.error || "Cloud save failed");
       const updatedAt = Number(body.updatedAt || Date.now());
       setCloudLastSyncedAt(updatedAt);
-      setCloudSyncStatus("Saved");
+      setCloudSyncStatus(quiet ? "Synced" : "Saved");
       setProfile((current) => ({
         ...current,
         accountConnected: true,
         accountEmail: current.accountEmail || key
       }));
-      addFocusLog("Cloud saved", `Synced ${Capacitor.isNativePlatform() ? "phone" : "PC"} settings.`, "mint");
+      if (!quiet) {
+        addFocusLog("Cloud saved", `Synced ${Capacitor.isNativePlatform() ? "phone" : "PC"} settings.`, "mint");
+      }
     } catch {
-      setCloudSyncStatus("Cloud unavailable");
-      addFocusLog("Cloud sync failed", "Check Vercel KV sync settings.", "gold");
+      setCloudSyncStatus(quiet ? "Sync waiting" : "Cloud unavailable");
+      if (!quiet) addFocusLog("Cloud sync failed", "Check Vercel cloud sync settings.", "gold");
     } finally {
+      cloudSyncBusyRef.current = false;
       setCloudSyncing(false);
     }
   };
 
-  const pullCloudSync = async () => {
+  const pullCloudSync = async (quiet = false) => {
     const key = getCloudSyncKey();
     if (!key) {
       setCloudSyncStatus("Add cloud ID");
-      addFocusLog("Cloud ID needed", "Enter the same cloud ID on both devices.", "gold");
+      if (!quiet) addFocusLog("Cloud ID needed", "Enter the same cloud ID on both devices.", "gold");
       return;
     }
 
+    if (cloudSyncBusyRef.current) return;
+    cloudSyncBusyRef.current = true;
     setCloudSyncing(true);
-    setCloudSyncStatus("Loading...");
+    setCloudSyncStatus(quiet ? "Auto loading..." : "Loading...");
     try {
       const response = await fetch(import.meta.env.VITE_CLOUD_SYNC_ENDPOINT || "/api/cloud-sync", {
         method: "POST",
@@ -3587,22 +3642,65 @@ function App() {
       const body = await response.json();
       if (!response.ok || !body.ok) throw new Error(body.error || "Cloud load failed");
       if (!body.payload) {
-        setCloudSyncStatus("No cloud save");
-        addFocusLog("No cloud save", "Save from your other device first.", "gold");
+        setCloudSyncStatus(quiet ? "Cloud ready" : "No cloud save");
+        if (!quiet) addFocusLog("No cloud save", "Save from your other device first.", "gold");
+        if (quiet) {
+          cloudSyncBusyRef.current = false;
+          setCloudSyncing(false);
+          await pushCloudSync(true);
+        }
         return;
       }
-      applySyncPayload(body.payload as Record<string, unknown>);
       const updatedAt = Number(body.updatedAt || Date.now());
+      if (quiet && updatedAt <= cloudLastSyncedAtRef.current) {
+        setCloudSyncStatus("Synced");
+        return;
+      }
+      applySyncPayload(body.payload as Record<string, unknown>, { fromCloud: true });
       setCloudLastSyncedAt(updatedAt);
-      setCloudSyncStatus("Loaded");
-      addFocusLog("Cloud loaded", `Latest save from ${body.device || "cloud"}.`, "mint");
+      setCloudSyncStatus(quiet ? "Synced" : "Loaded");
+      if (!quiet) addFocusLog("Cloud loaded", `Latest save from ${body.device || "cloud"}.`, "mint");
     } catch {
-      setCloudSyncStatus("Cloud unavailable");
-      addFocusLog("Cloud sync failed", "Check Vercel KV sync settings.", "gold");
+      setCloudSyncStatus(quiet ? "Sync waiting" : "Cloud unavailable");
+      if (!quiet) addFocusLog("Cloud sync failed", "Check Vercel cloud sync settings.", "gold");
     } finally {
+      cloudSyncBusyRef.current = false;
       setCloudSyncing(false);
     }
   };
+
+  useEffect(() => {
+    const autoCloudSync = profile.autoCloudSync ?? true;
+    if (!autoCloudSync || !getCloudSyncKey()) {
+      autoSyncBootedRef.current = false;
+      syncFingerprintRef.current = syncFingerprint;
+      return;
+    }
+
+    if (!autoSyncBootedRef.current) {
+      autoSyncBootedRef.current = true;
+      syncFingerprintRef.current = syncFingerprint;
+      const bootTimer = window.setTimeout(() => void pullCloudSync(true), 1400);
+      return () => window.clearTimeout(bootTimer);
+    }
+
+    if (cloudApplyingRef.current) {
+      syncFingerprintRef.current = syncFingerprint;
+      return;
+    }
+
+    if (syncFingerprintRef.current === syncFingerprint) return;
+    syncFingerprintRef.current = syncFingerprint;
+    const saveTimer = window.setTimeout(() => void pushCloudSync(true), 2400);
+    return () => window.clearTimeout(saveTimer);
+  }, [cloudSyncKey, profile.accountEmail, profile.autoCloudSync, syncFingerprint]);
+
+  useEffect(() => {
+    const autoCloudSync = profile.autoCloudSync ?? true;
+    if (!autoCloudSync || !getCloudSyncKey()) return;
+    const interval = window.setInterval(() => void pullCloudSync(true), 45000);
+    return () => window.clearInterval(interval);
+  }, [cloudSyncKey, profile.accountEmail, profile.autoCloudSync]);
 
   const timerLabel = formatDuration(secondsLeft);
   const todayPreviewBlocks = (activeBlocks.length ? activeBlocks : blocks).slice(0, 2);
@@ -5330,6 +5428,17 @@ function App() {
                       <span>Download</span>
                     </a>
                   </article>
+                  <article className="device-card download-card pc-guard-card">
+                    <Laptop size={22} />
+                    <div>
+                      <strong>PC Guard</strong>
+                      <span>Desktop app blocker.</span>
+                    </div>
+                    <a className="action-button" href="/downloads/sine-inverse-pc-guard.zip" download>
+                      <Download size={18} />
+                      <span>Download</span>
+                    </a>
+                  </article>
                   <label className="cloud-key-card">
                     <span>Cloud ID</span>
                     <input
@@ -5339,6 +5448,23 @@ function App() {
                         setCloudSyncStatus(event.target.value.trim() ? "Cloud ready" : "Add cloud ID");
                       }}
                       placeholder={profile.accountEmail || "your-email-or-private-key"}
+                    />
+                  </label>
+                  <label className="device-card sync-toggle-card">
+                    <RefreshCw size={22} />
+                    <div>
+                      <strong>Always synced</strong>
+                      <span>{(profile.autoCloudSync ?? true) ? cloudSyncStatus : "Manual only"}</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={profile.autoCloudSync ?? true}
+                      onChange={(event) =>
+                        setProfile((current) => ({
+                          ...current,
+                          autoCloudSync: event.target.checked
+                        }))
+                      }
                     />
                   </label>
                   <article className="device-card cloud-card">
@@ -5355,6 +5481,16 @@ function App() {
                     </button>
                     <button className="pill-toggle" type="button" onClick={() => void pullCloudSync()} disabled={cloudSyncing}>
                       Load
+                    </button>
+                  </article>
+                  <article className="device-card pc-command-card">
+                    <Copy size={22} />
+                    <div>
+                      <strong>PC Guard command</strong>
+                      <span>{pcGuardStatus}</span>
+                    </div>
+                    <button className="pill-toggle locked" type="button" onClick={() => void copyPcGuardCommand()}>
+                      Copy
                     </button>
                   </article>
                   <article className="device-card">

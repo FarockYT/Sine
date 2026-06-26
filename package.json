@@ -11,7 +11,9 @@
     "android:add": "cap add android",
     "android:sync": "npm run build && cap sync android",
     "android:open": "npm run android:sync && cap open android",
-    "apk:debug": "npm run android:sync && cd android && JAVA_HOME=${JAVA_HOME:-$HOME/.local/share/remind-blocks-jdk21} ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} PATH=${JAVA_HOME:-$HOME/.local/share/remind-blocks-jdk21}/bin:$PATH ./gradlew assembleDebug"
+    "apk:debug": "npm run android:sync && cd android && JAVA_HOME=${JAVA_HOME:-$HOME/.local/share/remind-blocks-jdk21} ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} PATH=${JAVA_HOME:-$HOME/.local/share/remind-blocks-jdk21}/bin:$PATH ./gradlew assembleDebug",
+    "pc:guard": "node desktop/sine-inverse-pc-guard.mjs",
+    "pc:pack": "mkdir -p public/downloads && zip -j public/downloads/sine-inverse-pc-guard.zip desktop/sine-inverse-pc-guard.mjs desktop/start-pc-guard-windows.cmd desktop/start-pc-guard-linux-mac.sh desktop/README.md"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",
