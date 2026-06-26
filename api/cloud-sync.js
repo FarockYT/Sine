@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { get, put } from "@vercel/blob";
 
 const MAX_PAYLOAD_BYTES = 900_000;
 
@@ -26,11 +27,52 @@ function cloudConfig() {
   };
 }
 
+function blobConfig() {
+  return {
+    storeId: process.env.BLOB_STORE_ID,
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+    oidcToken: process.env.VERCEL_OIDC_TOKEN
+  };
+}
+
+function hasRedisConfig() {
+  const { url, token } = cloudConfig();
+  return Boolean(url && token);
+}
+
+function hasBlobConfig() {
+  const { storeId, token, oidcToken } = blobConfig();
+  return Boolean(token || (storeId && (oidcToken || process.env.VERCEL)));
+}
+
+function activeBackend() {
+  const preference = String(process.env.SINE_SYNC_BACKEND || "auto").trim().toLowerCase();
+  if (preference === "blob" && hasBlobConfig()) return "blob";
+  if (preference === "redis" && hasRedisConfig()) return "redis";
+  if (hasBlobConfig()) return "blob";
+  if (hasRedisConfig()) return "redis";
+  return "";
+}
+
 function recordKey(value) {
   const normalized = String(value || "").trim();
   if (normalized.length < 3) return "";
   const digest = createHash("sha256").update(normalized).digest("hex");
   return `sine:sync:${digest.slice(0, 48)}`;
+}
+
+function blobPath(key) {
+  return `${key.replaceAll(":", "/")}.json`;
+}
+
+function blobOptions() {
+  const { storeId, token, oidcToken } = blobConfig();
+  return {
+    access: "private",
+    ...(storeId ? { storeId } : {}),
+    ...(token ? { token } : {}),
+    ...(oidcToken ? { oidcToken } : {})
+  };
 }
 
 async function redis(command) {
@@ -56,6 +98,41 @@ async function redis(command) {
   return data.result;
 }
 
+async function readCloudRecord(key, backend) {
+  if (backend === "blob") {
+    const result = await get(blobPath(key), blobOptions());
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const raw = await new Response(result.stream).text();
+    return JSON.parse(raw);
+  }
+
+  const raw = await redis(["GET", key]);
+  if (!raw) return null;
+  return typeof raw === "string" ? JSON.parse(raw) : raw;
+}
+
+async function writeCloudRecord(key, record, backend) {
+  const serialized = JSON.stringify(record);
+  if (serialized.length > MAX_PAYLOAD_BYTES) {
+    const error = new Error("Sync payload is too large");
+    error.code = "payload_too_large";
+    throw error;
+  }
+
+  if (backend === "blob") {
+    await put(blobPath(key), serialized, {
+      ...blobOptions(),
+      allowOverwrite: true,
+      addRandomSuffix: false,
+      cacheControlMaxAge: 60,
+      contentType: "application/json"
+    });
+    return;
+  }
+
+  await redis(["SET", key, serialized]);
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -72,8 +149,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { url, token } = cloudConfig();
-  if (!url || !token) {
+  const backend = activeBackend();
+  if (!backend) {
     json(res, 501, { ok: false, configured: false, error: "Cloud storage env vars are missing" });
     return;
   }
@@ -84,7 +161,13 @@ export default async function handler(req, res) {
     const key = recordKey(body.key);
 
     if (action === "status") {
-      json(res, 200, { ok: true, configured: true });
+      json(res, 200, {
+        ok: true,
+        configured: true,
+        backend,
+        blob: hasBlobConfig(),
+        redis: hasRedisConfig()
+      });
       return;
     }
 
@@ -94,14 +177,14 @@ export default async function handler(req, res) {
     }
 
     if (action === "pull") {
-      const raw = await redis(["GET", key]);
-      if (!raw) {
+      const record = await readCloudRecord(key, backend);
+      if (!record) {
         json(res, 200, { ok: true, payload: null });
         return;
       }
-      const record = typeof raw === "string" ? JSON.parse(raw) : raw;
       json(res, 200, {
         ok: true,
+        backend,
         payload: record.payload,
         updatedAt: record.updatedAt,
         device: record.device || "cloud"
@@ -119,13 +202,16 @@ export default async function handler(req, res) {
         device: String(body.device || "device").slice(0, 48),
         payload: body.payload
       };
-      const serialized = JSON.stringify(record);
-      if (serialized.length > MAX_PAYLOAD_BYTES) {
-        json(res, 413, { ok: false, error: "Sync payload is too large" });
-        return;
+      try {
+        await writeCloudRecord(key, record, backend);
+      } catch (error) {
+        if (error?.code === "payload_too_large") {
+          json(res, 413, { ok: false, error: error.message });
+          return;
+        }
+        throw error;
       }
-      await redis(["SET", key, serialized]);
-      json(res, 200, { ok: true, updatedAt: record.updatedAt, device: record.device });
+      json(res, 200, { ok: true, backend, updatedAt: record.updatedAt, device: record.device });
       return;
     }
 
@@ -133,6 +219,7 @@ export default async function handler(req, res) {
   } catch (error) {
     json(res, 500, {
       ok: false,
+      backend: activeBackend() || undefined,
       error: error?.message || "Cloud sync failed"
     });
   }

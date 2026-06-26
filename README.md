@@ -23,19 +23,31 @@ The production site is generated in `dist/` and includes a PWA service worker. O
 
 The Settings tab includes `PC + phone` controls for APK download, manual sync codes, and cloud storage. Cloud sync uses the Vercel serverless endpoint at `/api/cloud-sync`.
 
-Set one of these Redis REST credential pairs in Vercel:
+Recommended on Vercel: connect a Vercel Blob store to the project. The endpoint stores each Cloud ID as a private JSON blob and automatically uses Blob before Redis/KV when Blob env vars are present. Set `SINE_SYNC_BACKEND=redis` if you want to force the Vercel KV/Upstash backend instead.
 
 ```bash
-SINE_SYNC_REST_URL=...
-SINE_SYNC_REST_TOKEN=...
+BLOB_STORE_ID=...
 ```
 
-Vercel KV/Upstash defaults also work:
+Vercel provides the OIDC token to serverless functions when the store is connected. For local/off-Vercel testing, use a read/write token instead:
 
 ```bash
+BLOB_READ_WRITE_TOKEN=...
+```
+
+`BLOB_WEBHOOK_PUBLIC_KEY` is only for Blob webhook verification. Sine Inverse sync does not need it.
+
+Redis REST remains supported as a fallback:
+
+```bash
+SINE_SYNC_BACKEND=redis
+SINE_SYNC_REST_URL=...
+SINE_SYNC_REST_TOKEN=...
 KV_REST_API_URL=...
 KV_REST_API_TOKEN=...
 ```
+
+`KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, and `REDIS_URL` are not required by the Sine Inverse sync endpoint. Save/load needs the REST URL plus the write token, and those real values should live in Vercel environment variables instead of source control.
 
 Use the same Cloud ID on the PC website and Android APK, then tap `Save` on one device and `Load` on the other.
 
@@ -98,7 +110,7 @@ The Shield screen supports three ways to add blocked apps:
 
 ## Notes
 
-- Reminder data is stored locally by default. Cloud sync stores the same payload under your Cloud ID when the Vercel Redis REST env vars are configured.
+- Reminder data is stored locally by default. Cloud sync stores the same payload under your Cloud ID when Vercel Blob or Redis REST env vars are configured.
 - The AI coach is a local planning engine that turns natural-language prompts into reminder blocks and shield targets.
 - Web notifications work while the app session is active. Native Android notifications use Capacitor Local Notifications.
 - Native app blocking requires Android Accessibility permission and exact Android package names.
