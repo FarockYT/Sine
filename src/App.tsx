@@ -15,6 +15,7 @@ import {
   CirclePlay,
   Clock3,
   Copy,
+  Download,
   Filter,
   Flame,
   Focus,
@@ -23,6 +24,7 @@ import {
   History,
   Hourglass,
   Layers3,
+  Laptop,
   LockKeyhole,
   MessageSquareText,
   Mic,
@@ -42,6 +44,7 @@ import {
   TimerReset,
   Trash2,
   Trophy,
+  Upload,
   User,
   Waves,
   X,
@@ -1216,6 +1219,23 @@ function downloadIcsEvent(title: string, description: string, start: Date, end: 
   URL.revokeObjectURL(url);
 }
 
+function encodeSyncCode(value: unknown) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeSyncCode(value: string) {
+  const normalized = value.trim().replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+}
+
 function getMentionedPresets(text: string) {
   const lowered = text.toLowerCase();
   const packageNames = new Set<string>();
@@ -1403,6 +1423,8 @@ function App() {
   const [aiThinking, setAiThinking] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
   const [sharedCommandText, setSharedCommandText] = useState("");
+  const [deviceSyncInput, setDeviceSyncInput] = useState("");
+  const [deviceSyncStatus, setDeviceSyncStatus] = useState("Ready");
   const [messages, setMessages] = useState<AiMessage[]>([
     {
       id: createId(),
@@ -1649,6 +1671,38 @@ function App() {
       enabled: limit.enabled,
       warnAt: limit.warnAt
     }));
+
+  const deviceSyncCode = useMemo(
+    () =>
+      encodeSyncCode({
+        version: 1,
+        source: "sine-inverse",
+        updatedAt: Date.now(),
+        blocks,
+        targets: targets.map((target) => ({
+          id: target.id,
+          label: target.label,
+          kind: target.kind,
+          locked: target.locked,
+          category: target.category,
+          packageName: target.packageName,
+          url: target.url,
+          supportsPiP: target.supportsPiP
+        })),
+        schedules,
+        alarms,
+        appLimits,
+        strictMode,
+        focusMode,
+        focusMinutes,
+        shieldEnabled,
+        profile: {
+          ...profile,
+          accountConnected: true
+        }
+      }),
+    [alarms, appLimits, blocks, focusMinutes, focusMode, profile, schedules, shieldEnabled, strictMode, targets]
+  );
 
   const focusScore = useMemo(() => {
     const completion = blocks.length ? completedCount / blocks.length : 0;
@@ -3402,6 +3456,54 @@ function App() {
     addFocusLog("Smooth mode enabled", "Reduced heavy effects and compacted the layout.", "mint");
   };
 
+  const copyDeviceSyncCode = async () => {
+    try {
+      await navigator.clipboard.writeText(deviceSyncCode);
+      setDeviceSyncStatus("Copied");
+      addFocusLog("Sync code copied", "Paste it on your other device.", "mint");
+    } catch {
+      setDeviceSyncInput(deviceSyncCode);
+      setDeviceSyncStatus("Copy manually");
+      addFocusLog("Sync code ready", "Copy the code from the input.", "gold");
+    }
+  };
+
+  const importDeviceSyncCode = () => {
+    try {
+      const payload = decodeSyncCode(deviceSyncInput);
+      if (payload.source !== "sine-inverse" || payload.version !== 1) {
+        throw new Error("Unknown sync payload");
+      }
+
+      if (Array.isArray(payload.blocks)) setBlocks(payload.blocks as ReminderBlock[]);
+      if (Array.isArray(payload.targets)) setTargets(payload.targets as ShieldTarget[]);
+      if (Array.isArray(payload.schedules)) setSchedules(payload.schedules as FocusSchedule[]);
+      if (Array.isArray(payload.alarms)) setAlarms(payload.alarms as AlarmSchedule[]);
+      if (Array.isArray(payload.appLimits)) setAppLimits(payload.appLimits as AppLimit[]);
+      if (typeof payload.strictMode === "boolean") setStrictMode(payload.strictMode);
+      if (typeof payload.shieldEnabled === "boolean") setShieldEnabled(payload.shieldEnabled);
+      if (typeof payload.focusMinutes === "number") {
+        setFocusMinutes(payload.focusMinutes);
+        setSecondsLeft(payload.focusMinutes * 60);
+      }
+      if (typeof payload.focusMode === "string") setFocusMode(payload.focusMode as FocusMode);
+      if (payload.profile && typeof payload.profile === "object") {
+        setProfile((current) => ({
+          ...current,
+          ...(payload.profile as Partial<ProfileSettings>),
+          accountConnected: true
+        }));
+      }
+
+      setDeviceSyncInput("");
+      setDeviceSyncStatus("Connected");
+      addFocusLog("Device connected", "PC and phone settings now match.", "mint");
+    } catch {
+      setDeviceSyncStatus("Invalid code");
+      addFocusLog("Sync failed", "Paste a fresh Sine Inverse sync code.", "gold");
+    }
+  };
+
   const timerLabel = formatDuration(secondsLeft);
   const todayPreviewBlocks = (activeBlocks.length ? activeBlocks : blocks).slice(0, 2);
   const hiddenTodayBlocks = Math.max(0, blocks.length - todayPreviewBlocks.length);
@@ -3419,7 +3521,7 @@ function App() {
 
   return (
     <main
-      className={`app-shell mode-${profile.uiMode ?? "standard"} ${sessionActive ? "focus-live" : ""} ${profile.compactMode ? "compact" : ""}`}
+      className={`app-shell tab-${activeTab} mode-${profile.uiMode ?? "standard"} ${sessionActive ? "focus-live" : ""} ${profile.compactMode ? "compact" : ""}`}
       onPointerUp={handleShellPointerUp}
     >
       {launching && (
@@ -5105,6 +5207,54 @@ function App() {
                     <strong>Clock manager</strong>
                     <span>Review alarms.</span>
                   </button>
+                </div>
+              </section>
+
+              <section className="device-panel">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">PC + phone</p>
+                    <h3>Download and sync</h3>
+                  </div>
+                  <Laptop size={23} />
+                </div>
+                <div className="device-grid">
+                  <article className="device-card download-card">
+                    <Smartphone size={22} />
+                    <div>
+                      <strong>Android APK</strong>
+                      <span>Install the phone blocker.</span>
+                    </div>
+                    <a className="action-button" href="/downloads/sine-inverse.apk" download>
+                      <Download size={18} />
+                      <span>Download</span>
+                    </a>
+                  </article>
+                  <article className="device-card">
+                    <Copy size={22} />
+                    <div>
+                      <strong>Copy sync code</strong>
+                      <span>{deviceSyncStatus}</span>
+                    </div>
+                    <button className="pill-toggle locked" type="button" onClick={() => void copyDeviceSyncCode()}>
+                      Copy
+                    </button>
+                  </article>
+                  <label className="device-import-card">
+                    <span>Paste sync code</span>
+                    <textarea
+                      value={deviceSyncInput}
+                      onChange={(event) => {
+                        setDeviceSyncInput(event.target.value);
+                        setDeviceSyncStatus(event.target.value.trim() ? "Ready to import" : "Ready");
+                      }}
+                      placeholder="Paste code from PC or phone"
+                    />
+                    <button className="action-button" type="button" onClick={importDeviceSyncCode} disabled={!deviceSyncInput.trim()}>
+                      <Upload size={18} />
+                      <span>Connect</span>
+                    </button>
+                  </label>
                 </div>
               </section>
               </div>

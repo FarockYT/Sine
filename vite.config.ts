@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["app-icon.svg", "assets/ai-companion.png"],
       manifest: {
-        name: "ReMind Blocks",
-        short_name: "ReMind",
-        description: "AI-assisted reminder blocks, focus shield, and daily planning.",
+        name: "Sine Inverse",
+        short_name: "Sine",
+        description: "AI focus blocks, app shield, alarms, limits, and PC-phone sync.",
         theme_color: "#f7f3ea",
         background_color: "#f7f3ea",
         display: "standalone",
