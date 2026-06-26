@@ -49,8 +49,8 @@ function activeBackend() {
   const preference = String(process.env.SINE_SYNC_BACKEND || "auto").trim().toLowerCase();
   if (preference === "blob" && hasBlobConfig()) return "blob";
   if (preference === "redis" && hasRedisConfig()) return "redis";
-  if (hasBlobConfig()) return "blob";
   if (hasRedisConfig()) return "redis";
+  if (hasBlobConfig()) return "blob";
   return "";
 }
 

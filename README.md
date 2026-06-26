@@ -23,7 +23,7 @@ The production site is generated in `dist/` and includes a PWA service worker. O
 
 The Settings tab includes `PC + phone` controls for APK download, PC Guard download, manual sync codes, and cloud storage. Cloud sync uses the Vercel serverless endpoint at `/api/cloud-sync`. When `Always synced` is enabled, the app loads from cloud on startup, saves edits after a short debounce, and refreshes in the background.
 
-Recommended on Vercel: connect a Vercel Blob store to the project. The endpoint stores each Cloud ID as a private JSON blob and automatically uses Blob before Redis/KV when Blob env vars are present. Set `SINE_SYNC_BACKEND=redis` if you want to force the Vercel KV/Upstash backend instead.
+Cloud sync automatically prefers Redis/KV when those env vars are available. Vercel Blob is also supported for private Blob stores, or you can force either backend with `SINE_SYNC_BACKEND=redis` or `SINE_SYNC_BACKEND=blob`.
 
 ```bash
 BLOB_STORE_ID=...
