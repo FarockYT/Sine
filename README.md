@@ -17,7 +17,27 @@ Open the local URL printed by Vite.
 npm run build
 ```
 
-The production site is generated in `dist/` and includes a PWA service worker.
+The production site is generated in `dist/` and includes a PWA service worker. On desktop widths, the same app switches into the full PC layout with sidebar navigation, wide dashboards, and the PC + phone sync panel.
+
+## Cloud Sync
+
+The Settings tab includes `PC + phone` controls for APK download, manual sync codes, and cloud storage. Cloud sync uses the Vercel serverless endpoint at `/api/cloud-sync`.
+
+Set one of these Redis REST credential pairs in Vercel:
+
+```bash
+SINE_SYNC_REST_URL=...
+SINE_SYNC_REST_TOKEN=...
+```
+
+Vercel KV/Upstash defaults also work:
+
+```bash
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+```
+
+Use the same Cloud ID on the PC website and Android APK, then tap `Save` on one device and `Load` on the other.
 
 ## Android APK
 
@@ -28,7 +48,7 @@ npm run android:add
 npm run apk:debug
 ```
 
-The debug APK will be created under `android/app/build/outputs/apk/debug/` after the Android platform and Java toolchain are available.
+The debug APK will be created under `android/app/build/outputs/apk/debug/` after the Android platform and Java toolchain are available. The deployed website can also serve the APK from `/downloads/sine-inverse.apk` when `public/downloads/sine-inverse.apk` is present.
 On this machine, the `apk:debug` script also falls back to the local Java 21 install at `~/.local/share/remind-blocks-jdk21`.
 
 ## Shield, Schedules, And Usage Limits
@@ -60,6 +80,7 @@ To enable native app blocking, screen-time history, and app limits on Android:
 - App picker modal with search, category chips, checkboxes, selected-app chips, custom package entry, PiP badges, and quick bundles like Shorts & Reels.
 - Smarter local AI commands for blocking bundles, setting daily limits, creating scheduled focus windows, and turning prompts into reminder blocks.
 - AI command center with dynamic attention-risk scoring, autopilot recommendations, quick actions, and optional hosted AI replies through `VITE_AI_ENDPOINT`.
+- Full PC web layout with desktop navigation, wide dashboard sections, APK download, cloud Save/Load, and manual sync-code transfer between PC and phone.
 
 ## AI Engine
 
@@ -77,7 +98,7 @@ The Shield screen supports three ways to add blocked apps:
 
 ## Notes
 
-- Reminder data is stored locally in the browser or WebView.
+- Reminder data is stored locally by default. Cloud sync stores the same payload under your Cloud ID when the Vercel Redis REST env vars are configured.
 - The AI coach is a local planning engine that turns natural-language prompts into reminder blocks and shield targets.
 - Web notifications work while the app session is active. Native Android notifications use Capacitor Local Notifications.
 - Native app blocking requires Android Accessibility permission and exact Android package names.

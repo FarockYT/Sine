@@ -8486,14 +8486,20 @@ svg {
   align-items: center;
 }
 
+.device-card.cloud-card {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
 .device-card svg,
-.device-import-card > span {
+.device-import-card > span,
+.cloud-key-card > span {
   color: var(--mint-strong);
 }
 
 .device-card strong,
 .device-card span,
-.device-import-card > span {
+.device-import-card > span,
+.cloud-key-card > span {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -8502,7 +8508,8 @@ svg {
 }
 
 .device-card span,
-.device-import-card > span {
+.device-import-card > span,
+.cloud-key-card > span {
   color: var(--ink-soft);
   font-size: 0.78rem;
   font-weight: 850;
@@ -8516,16 +8523,35 @@ svg {
   grid-column: 1 / -1;
 }
 
+.cloud-key-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  padding: 0.85rem;
+}
+
+.cloud-key-card input,
 .device-import-card textarea {
   width: 100%;
-  min-height: 5.4rem;
-  resize: vertical;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--control-fg);
   background: var(--control-bg);
   padding: 0.75rem;
   font: inherit;
+}
+
+.cloud-key-card input {
+  min-height: 2.75rem;
+}
+
+.device-import-card textarea {
+  min-height: 5.4rem;
+  resize: vertical;
 }
 
 .device-import-card .action-button {
@@ -8553,16 +8579,32 @@ svg {
     gap: 0.45rem;
   }
 
+  .device-card.cloud-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .device-card.cloud-card .pill-toggle {
+    width: 100%;
+  }
+
   .device-card .action-button,
   .device-card .pill-toggle {
     min-width: 2.5rem;
     padding: 0 0.65rem;
   }
 
+  .cloud-key-card input,
   .device-import-card textarea {
-    min-height: 4.2rem;
     border-radius: 14px;
     font-size: 0.78rem;
+  }
+
+  .cloud-key-card input {
+    min-height: 2.35rem;
+  }
+
+  .device-import-card textarea {
+    min-height: 4.2rem;
   }
 }
 
