@@ -8,8 +8,6 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.app.AppOpsManager;
-import android.app.usage.UsageStats;
-import android.app.usage.UsageStatsManager;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -475,26 +473,12 @@ public class FocusBlockerPlugin extends Plugin {
             return;
         }
 
-        UsageStatsManager usageStatsManager = (UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
-        if (usageStatsManager == null) {
-            response.put("apps", apps);
-            response.put("days", dayRows);
-            call.resolve(response);
-            return;
-        }
-
         long now = System.currentTimeMillis();
-        Calendar todayStart = Calendar.getInstance();
-        todayStart.set(Calendar.HOUR_OF_DAY, 0);
-        todayStart.set(Calendar.MINUTE, 0);
-        todayStart.set(Calendar.SECOND, 0);
-        todayStart.set(Calendar.MILLISECOND, 0);
-
-        Map<String, UsageStats> statsMap = usageStatsManager.queryAndAggregateUsageStats(todayStart.getTimeInMillis(), now);
+        Map<String, UsageTracker.UsageEntry> statsMap = UsageTracker.queryUsage(getContext(), UsageTracker.startOfTodayMillis(), now);
         List<JSObject> rows = new ArrayList<>();
-        for (Map.Entry<String, UsageStats> entry : statsMap.entrySet()) {
-            UsageStats stat = entry.getValue();
-            long foreground = stat == null ? 0L : stat.getTotalTimeInForeground();
+        for (Map.Entry<String, UsageTracker.UsageEntry> entry : statsMap.entrySet()) {
+            UsageTracker.UsageEntry stat = entry.getValue();
+            long foreground = stat == null ? 0L : stat.foregroundMillis;
             if (foreground <= 0L) {
                 continue;
             }
@@ -509,7 +493,7 @@ public class FocusBlockerPlugin extends Plugin {
             row.put("label", label);
             row.put("packageName", packageName);
             row.put("minutes", minutes);
-            row.put("lastTimeUsed", stat.getLastTimeUsed());
+            row.put("lastTimeUsed", stat.lastTimeUsed);
             row.put("category", category);
             row.put("supportsPiP", supportsPictureInPicture(packageName));
             if (limit != null) {
@@ -525,7 +509,7 @@ public class FocusBlockerPlugin extends Plugin {
         }
 
         response.put("apps", apps);
-        response.put("days", buildUsageDays(usageStatsManager, days, now));
+        response.put("days", buildUsageDays(days, now));
         call.resolve(response);
     }
 
@@ -768,7 +752,7 @@ public class FocusBlockerPlugin extends Plugin {
         return false;
     }
 
-    private JSArray buildUsageDays(UsageStatsManager usageStatsManager, int days, long now) {
+    private JSArray buildUsageDays(int days, long now) {
         JSArray result = new JSArray();
         Calendar cursor = Calendar.getInstance();
         cursor.add(Calendar.DATE, -(days - 1));
@@ -783,14 +767,14 @@ public class FocusBlockerPlugin extends Plugin {
             Calendar endCursor = (Calendar) cursor.clone();
             endCursor.add(Calendar.DATE, 1);
             long end = Math.min(endCursor.getTimeInMillis(), now);
-            Map<String, UsageStats> statsMap = usageStatsManager.queryAndAggregateUsageStats(start, end);
+            Map<String, UsageTracker.UsageEntry> statsMap = UsageTracker.queryUsage(getContext(), start, end);
             int productive = 0;
             int disturbance = 0;
             int neutral = 0;
 
-            for (Map.Entry<String, UsageStats> entry : statsMap.entrySet()) {
-                UsageStats stat = entry.getValue();
-                long foreground = stat == null ? 0L : stat.getTotalTimeInForeground();
+            for (Map.Entry<String, UsageTracker.UsageEntry> entry : statsMap.entrySet()) {
+                UsageTracker.UsageEntry stat = entry.getValue();
+                long foreground = stat == null ? 0L : stat.foregroundMillis;
                 if (foreground <= 0L) {
                     continue;
                 }

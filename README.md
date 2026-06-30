@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite.
+Open the local URL printed by Vite. The hosted browser experience is the download/tutorial website; add `?app=1` during local development if you need to inspect the web app shell in a browser. Android still opens the full app through Capacitor.
 
 ## Build The Website
 
@@ -17,7 +17,7 @@ Open the local URL printed by Vite.
 npm run build
 ```
 
-The production site is generated in `dist/` and includes a PWA service worker. On desktop widths, the same app switches into the full PC layout with sidebar navigation, wide dashboards, and the PC + phone sync panel.
+The production site is generated in `dist/` and includes the public download/tutorial website, the latest Android APK, and the PC Guard package.
 
 ## Cloud Sync
 
@@ -53,7 +53,17 @@ Use the same Cloud ID on the PC website and Android APK, then tap `Save` on one 
 
 ## PC Guard
 
-The desktop companion lives in `desktop/` and can be downloaded from `/downloads/sine-inverse-pc-guard.zip` after running `npm run pc:pack`.
+The desktop companion lives in `desktop/` and can be downloaded from `/downloads/sine-inverse-pc-guard.zip` after running `npm run pc:pack`. The easiest mode is the local PC Guard UI:
+
+```bash
+npm run pc:ui
+```
+
+Or after downloading the zip on Linux Mint:
+
+```bash
+./start-pc-ui-linux-mac.sh
+```
 
 ```bash
 npm run pc:guard -- --endpoint https://your-site.vercel.app/api/cloud-sync --cloud-id YOUR_CLOUD_ID --enforce
@@ -99,10 +109,12 @@ To enable native app blocking, screen-time history, and app limits on Android:
 - Focus presets for deep work, study, routine, and wind down.
 - Scheduled focus timing with day chips, start/end windows, target app selection, and optional alerts.
 - Usage timers that can allow an app for a daily budget, such as 2 hours, then block it through the Android Accessibility redirect.
+- Android usage limits now use event-based foreground tracking from local midnight to the current moment, so yesterday's usage cannot trigger today's limit.
 - App picker modal with search, category chips, checkboxes, selected-app chips, custom package entry, PiP badges, and quick bundles like Shorts & Reels.
 - Smarter local AI commands for blocking bundles, setting daily limits, creating scheduled focus windows, and turning prompts into reminder blocks.
 - AI command center with dynamic attention-risk scoring, autopilot recommendations, quick actions, and optional hosted AI replies through `VITE_AI_ENDPOINT`.
-- Full PC web layout with desktop navigation, wide dashboard sections, APK download, cloud Save/Load, and manual sync-code transfer between PC and phone.
+- Public website for downloads, update notes, feature details, and setup tutorials.
+- PC Guard UI with cloud test, start/stop controls, preview/enforce mode, hosts blocking option, and live logs.
 - Always-on cloud sync for PC web, Android APK, and the PC Guard companion.
 - PC Guard desktop companion with Cloud ID rule pull, process blocking, daily limit enforcement, and optional hosts-file website blocking.
 

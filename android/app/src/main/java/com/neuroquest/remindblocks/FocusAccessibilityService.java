@@ -5,8 +5,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.usage.UsageStats;
-import android.app.usage.UsageStatsManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
@@ -16,7 +14,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Calendar;
-import java.util.Map;
 
 public class FocusAccessibilityService extends AccessibilityService {
     private static final String CHANNEL_ID = "focus_blocks";
@@ -194,24 +191,8 @@ public class FocusAccessibilityService extends AccessibilityService {
     }
 
     private int getTodayUsageMinutes(String packageName) {
-        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
-        if (usageStatsManager == null) {
-            return 0;
-        }
-
-        Calendar calendar = Calendar.getInstance();
-        long now = calendar.getTimeInMillis();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-
-        Map<String, UsageStats> statsMap = usageStatsManager.queryAndAggregateUsageStats(calendar.getTimeInMillis(), now);
-        UsageStats stats = statsMap.get(packageName);
-        if (stats == null) {
-            return 0;
-        }
-        return (int) Math.ceil(stats.getTotalTimeInForeground() / 60000.0);
+        long now = System.currentTimeMillis();
+        return UsageTracker.getPackageMinutes(getApplicationContext(), packageName, UsageTracker.startOfTodayMillis(), now);
     }
 
     private boolean isScheduleActive(JSONObject schedule, long now) {
